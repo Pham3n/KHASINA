@@ -4,7 +4,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class GameViewModel : ViewModel() {
     var engine by mutableStateOf(GameEngine())
@@ -144,12 +147,21 @@ class GameViewModel : ViewModel() {
                 lastMessage = "Waiting for opponent..."
                 sendData("MOVE:${gson.toJson(card)}")
             } else {
-                lastMessage = "AI is thinking..."
                 if (engine.gameOver) {
                     val scores = engine.calculateScores()
                     lastMessage = "Game Over! Player: ${scores["Player"]}, AI: ${scores["AI"]}"
                 } else {
-                    lastMessage = "Your turn!"
+                    lastMessage = "AI is thinking..."
+                    viewModelScope.launch {
+                        delay(3000)
+                        engine.aiTurn()
+                        lastMessage = if (engine.gameOver) {
+                            val scores = engine.calculateScores()
+                            "Game Over! Player: ${scores["Player"]}, AI: ${scores["AI"]}"
+                        } else {
+                            "Your turn!"
+                        }
+                    }
                 }
             }
         }

@@ -79,7 +79,7 @@ class GameEngine {
         if (captured.isNotEmpty()) {
             // Rules Confirm: "the top-most card must be shown"
             // The played card is placed ON TOP of the captured combination.
-            stack.addAll(captured.sortedBy { it.value }) // Put smaller cards at the bottom of the new capture group
+            stack.addAll(captured.sortedByDescending { it.value }) // Put larger cards at the bottom, smallest on top of the captured group
             stack.add(card) // The played card is the absolute top-most
             floor.removeAll(captured)
         } else {

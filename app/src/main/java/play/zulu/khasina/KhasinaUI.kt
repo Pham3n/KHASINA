@@ -90,7 +90,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
             modifier = Modifier.weight(1f)
         ) {
             // ===== FLOOR =====
-            Column(
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
@@ -100,20 +100,27 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                     )
                     .padding(16.dp)
             ) {
-                Text(
-                    text = "FLOOR",
-                    color = Color(0xFFEBC98F),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
-                )
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Text(
+                        text = "FLOOR",
+                        color = Color(0xFFEBC98F),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                FloorSection(cards = engine.floor)
+                    FloorSection(cards = engine.floor)
+                }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                ConstructionSection()
+                // Construction Section - Anchored to the bottom
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 8.dp)
+                ) {
+                    ConstructionSection()
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -125,7 +132,10 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
             ) {
                 SideInfoCard(
                     title = "TURN",
-                    content = if (engine.gameOver) "GAME OVER" else if (engine.isPlayerTurn) "YOUR TURN" else "OPPONENT"
+                    content = if (engine.gameOver) "GAME OVER" 
+                              else if (engine.isPlayerTurn) "YOUR TURN" 
+                              else if (viewModel.isMultiplayer) "OPPONENT" 
+                              else "AI TURN"
                 )
 
                 SideInfoCard(
@@ -191,22 +201,24 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FloorSection(cards: List<Card>) {
-    Column {
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(cards) { card ->
-                PlayingCard(card)
-            }
+    // Wrapped row for floor cards
+    androidx.compose.foundation.layout.FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        cards.forEach { card ->
+            PlayingCard(card)
         }
     }
 }
 
 @Composable
 fun ConstructionSection() {
+    // Fixed row of 4 slots at the bottom
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -226,7 +238,6 @@ fun ConstructionPlaceholder() {
             .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center
     ) {
-        // Here we will eventually show the top card of a construction if it exists
     }
 }
 
