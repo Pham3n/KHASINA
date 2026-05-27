@@ -80,7 +80,8 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                     ConstructionSection(
                         constructions = engine.constructions,
                         selectedConstructions = viewModel.selectedConstructions,
-                        onConstructionClick = { viewModel.onConstructionClicked(it) }
+                        onConstructionClick = { viewModel.onConstructionClicked(it) },
+                        isMultiplayer = viewModel.isMultiplayer
                     )
                 }
             }
@@ -92,7 +93,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                 SideInfoCard(
                     title = "TURN",
                     content = if (engine.gameOver) "GAME OVER" 
-                              else if (viewModel.isMultiStagePlayActive) "ADD MORE"
+                              else if (viewModel.isMultiStagePlayActive) "YOUR TURN"
                               else if (engine.isPlayerTurn) "YOUR TURN" 
                               else if (viewModel.isMultiplayer) "OPPONENT" 
                               else "AI TURN"
@@ -142,6 +143,11 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                 text = "CAPTURE",
                 enabled = (viewModel.selectedCardHand != null) && engine.isPlayerTurn && !engine.gameOver
             ) { viewModel.onCaptureClicked() }
+
+            GameActionButton(
+                text = "BUILD",
+                enabled = (viewModel.selectedCardHand != null) && engine.isPlayerTurn && !engine.gameOver
+            ) { viewModel.onBuildClicked() }
 
             GameActionButton("RESET") { viewModel.resetGame() }
 
@@ -194,10 +200,16 @@ fun FloorSection(cards: List<Card>, selectedCards: List<Card>, onCardClick: (Car
 fun ConstructionSection(
     constructions: List<Construction>,
     selectedConstructions: List<Construction>,
-    onConstructionClick: (Construction) -> Unit
+    onConstructionClick: (Construction) -> Unit,
+    isMultiplayer: Boolean
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        repeat(4) { index ->
+        // Rules: only show placeholders for assigned players. In LOCAL, show 1. In Multiplayer, show 2.
+        val maxSlots = if (isMultiplayer) 2 else 1
+        repeat(maxSlots) { index ->
+            // Try to find construction for this slot (very simple mapping for now)
+            // In Local: index 0 is always the player.
+            // In Multi: index 0 might be host, index 1 might be client.
             val construction = constructions.getOrNull(index)
             if (construction != null) {
                 construction.topCard?.let { card ->

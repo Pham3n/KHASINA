@@ -28,7 +28,7 @@ class GameViewModel : ViewModel() {
     val selectedConstructions = mutableStateListOf<Construction>()
     var selectedOpponentStackCard by mutableStateOf<Card?>(null)
     
-    var turnTimerJob: Job? = null
+    private var turnTimerJob: Job? = null
     var isMultiStagePlayActive by mutableStateOf(false)
 
     enum class ConnectionType { BLUETOOTH, LAN, ONLINE }
@@ -38,12 +38,10 @@ class GameViewModel : ViewModel() {
         onConnected = { onConnected() },
         onReceived = { message -> handleReceivedMessage(message) }
     )
-    
     private val lanService = LanService(
         onConnected = { onConnected() },
         onReceived = { message -> handleReceivedMessage(message) }
     )
-
     private val onlineService = OnlineService(
         onConnected = { onConnected() },
         onReceived = { message -> handleReceivedMessage(message) }
@@ -51,12 +49,9 @@ class GameViewModel : ViewModel() {
 
     private fun onConnected() {
         if (isHost || connectionType == ConnectionType.ONLINE) {
-            val state = engine.exportState()
-            sendData("SYNC:${gson.toJson(state)}")
+            sendData("SYNC:${gson.toJson(engine.exportState())}")
             lastMessage = "Opponent connected! Your turn."
-        } else {
-            lastMessage = "Connected! Waiting for host..."
-        }
+        } else lastMessage = "Connected! Waiting for host..."
     }
 
     private fun sendData(data: String) {
@@ -69,35 +64,24 @@ class GameViewModel : ViewModel() {
     }
 
     fun startHosting(type: ConnectionType) {
-        isMultiplayer = true
-        isHost = true
-        connectionType = type
-        engine.useAI = false
-        when (type) {
-            ConnectionType.BLUETOOTH -> { bluetoothService.startHost(); lastMessage = "Hosting via Bluetooth..." }
-            ConnectionType.LAN -> { lanService.startHost(); lastMessage = "Hosting via WiFi at ${lanService.getLocalIpAddress()}" }
-            ConnectionType.ONLINE -> { lastMessage = "Online lobby enabled." }
-        }
+        isMultiplayer = true; isHost = true; connectionType = type; engine.useAI = false
+        if (type == ConnectionType.BLUETOOTH) bluetoothService.startHost()
+        else if (type == ConnectionType.LAN) lanService.startHost()
+        lastMessage = if (type == ConnectionType.LAN) "Hosting via WiFi at ${lanService.getLocalIpAddress()}" else "Hosting..."
     }
 
     fun connectToHost(address: String, type: ConnectionType) {
-        isMultiplayer = true
-        isHost = false
-        connectionType = type
-        engine.useAI = false
-        when (type) {
-            ConnectionType.BLUETOOTH -> bluetoothService.connect(address)
-            ConnectionType.LAN -> lanService.connect(address)
-            ConnectionType.ONLINE -> onlineService.connect(address)
-        }
+        isMultiplayer = true; isHost = false; connectionType = type; engine.useAI = false
+        if (type == ConnectionType.BLUETOOTH) bluetoothService.connect(address)
+        else if (type == ConnectionType.LAN) lanService.connect(address)
+        else onlineService.connect(address)
         lastMessage = "Connecting..."
     }
 
     fun disconnect() {
         bluetoothService.stop(); lanService.stop(); onlineService.stop()
         isMultiplayer = false; isHost = false; connectionType = null
-        resetLocalGame()
-        engine.useAI = true
+        resetLocalGame(); engine.useAI = true
         lastMessage = "Disconnected. AI mode."
     }
 
@@ -108,42 +92,29 @@ class GameViewModel : ViewModel() {
 
     private fun handleReceivedMessage(message: String) {
         try {
-            if (message.startsWith("MOVE:")) {
-                // For manual play, MOVE might need more data (selected floor cards etc)
-                // For basic version, we stick to the card played
-                val cardJson = message.substring(5)
-                val card = gson.fromJson(cardJson, Card::class.java)
-                engine.playCard(card, false) 
-                lastMessage = "Your turn!"
-            } else if (message.startsWith("SYNC:")) {
-                val state = gson.fromJson(message.substring(5), GameState::class.java)
-                engine.importState(state)
-                lastMessage = if (engine.isPlayerTurn) "Your turn!" else "Waiting for opponent..."
+            if (message.startsWith("SYNC:")) {
+                engine.importState(gson.fromJson(message.substring(5), GameState::class.java))
+                lastMessage = if (engine.isPlayerTurn) "YOUR TURN" else "Waiting for opponent..."
             } else if (message == "RESET") {
-                resetLocalGame()
-                lastMessage = "Game reset by opponent."
+                resetLocalGame(); lastMessage = "Game reset by opponent."
             }
+            // For simplicity in this architecture, full state sync is safer than delta moves
         } catch (e: Exception) { lastMessage = "Error: ${e.message}" }
     }
 
     // Toggle Selection Handlers
     fun onCardHandClicked(card: Card) {
-        if (!engine.isPlayerTurn || engine.gameOver) return
+        if (!engine.isPlayerTurn || engine.gameOver || isMultiStagePlayActive) return
         selectedCardHand = if (selectedCardHand == card) null else card
     }
-
     fun onCardFloorClicked(card: Card) {
         if (!engine.isPlayerTurn || engine.gameOver) return
-        if (selectedCardsFloor.contains(card)) selectedCardsFloor.remove(card)
-        else selectedCardsFloor.add(card)
+        if (selectedCardsFloor.contains(card)) selectedCardsFloor.remove(card) else selectedCardsFloor.add(card)
     }
-
     fun onConstructionClicked(construction: Construction) {
         if (!engine.isPlayerTurn || engine.gameOver) return
-        if (selectedConstructions.contains(construction)) selectedConstructions.remove(construction)
-        else selectedConstructions.add(construction)
+        if (selectedConstructions.contains(construction)) selectedConstructions.remove(construction) else selectedConstructions.add(construction)
     }
-
     fun onOpponentStackClicked() {
         if (!engine.isPlayerTurn || engine.gameOver) return
         val top = engine.aiStack.lastOrNull() ?: return
@@ -151,25 +122,33 @@ class GameViewModel : ViewModel() {
     }
 
     fun onCaptureClicked() {
+        executePlay(isCapture = true)
+    }
+
+    fun onBuildClicked() {
+        executePlay(isCapture = false)
+    }
+
+    private fun executePlay(isCapture: Boolean) {
         if (engine.gameOver) return
-        val card = selectedCardHand ?: return // Must play a card from hand to start/capture
+        val card = selectedCardHand ?: return 
         
-        val success = engine.executeManualCapture(
-            card,
-            selectedCardsFloor.toList(),
-            selectedConstructions.toList(),
-            selectedOpponentStackCard,
-            true
+        val success = engine.executeManualPlay(
+            playedCard = card,
+            selectedFloorCards = selectedCardsFloor.toList(),
+            selectedConstructions = selectedConstructions.toList(),
+            recoveredOpponentCard = selectedOpponentStackCard,
+            isPlayer = true,
+            isCapture = isCapture
         )
 
         clearSelections()
 
         if (success) {
-            // Valid play: start/reset 3-second timer for multi-stage
             isMultiStagePlayActive = true
             startMultiStageTimer()
+            if (isMultiplayer) sendData("SYNC:${gson.toJson(engine.exportState())}")
         } else {
-            // Invalid play: card went to floor, turn ended.
             endTurn()
         }
     }
@@ -177,19 +156,20 @@ class GameViewModel : ViewModel() {
     private fun startMultiStageTimer() {
         turnTimerJob?.cancel()
         turnTimerJob = viewModelScope.launch {
-            lastMessage = "3s to add more..."
-            delay(3000)
+            lastMessage = "YOUR TURN (5s to add more)"
+            delay(5000)
             endTurn()
         }
     }
 
     private fun endTurn() {
+        turnTimerJob?.cancel()
         isMultiStagePlayActive = false
         engine.isPlayerTurn = false
-        if (isMultiplayer) {
-            // Send move to other player
-            // bluetoothService.send(...)
-        } else if (engine.useAI) {
+        clearSelections()
+        
+        if (isMultiplayer) sendData("SYNC:${gson.toJson(engine.exportState())}")
+        else if (engine.useAI) {
             viewModelScope.launch {
                 lastMessage = "AI TURN"
                 delay(3000)
@@ -212,7 +192,7 @@ class GameViewModel : ViewModel() {
             sendData("RESET")
             if (isHost) sendData("SYNC:${gson.toJson(engine.exportState())}")
             lastMessage = "Game Reset Sent."
-        } else lastMessage = "Your turn!"
+        } else lastMessage = "YOUR TURN"
     }
 
     private fun resetLocalGame() {
@@ -220,5 +200,7 @@ class GameViewModel : ViewModel() {
         engine = GameEngine()
         engine.useAI = currentUseAi
         clearSelections()
+        isMultiStagePlayActive = false
+        turnTimerJob?.cancel()
     }
 }

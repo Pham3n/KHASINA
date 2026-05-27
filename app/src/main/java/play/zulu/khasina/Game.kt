@@ -34,7 +34,7 @@ data class Card(val rank: Int, val suit: Suit) {
 }
 
 data class Construction(
-    val ownerId: String, // "Player" or "AI" (or "Opponent" in multiplayer)
+    val ownerId: String, 
     val targetValue: Int,
     val cards: SnapshotStateList<Card> = mutableStateListOf()
 ) {
@@ -70,8 +70,15 @@ class GameEngine {
         deck.clear()
         deck.addAll(allCards)
         constructions.clear()
+        floor.clear()
+        playerStack.clear()
+        aiStack.clear()
+        playerHand.clear()
+        aiHand.clear()
         
         deal()
+        isPlayerTurn = true
+        gameOver = false
     }
 
     fun deal() {
@@ -81,13 +88,13 @@ class GameEngine {
         }
     }
 
-    // Manual play logic as requested
-    fun executeManualCapture(
+    fun executeManualPlay(
         playedCard: Card,
         selectedFloorCards: List<Card>,
         selectedConstructions: List<Construction>,
         recoveredOpponentCard: Card?,
-        isPlayer: Boolean
+        isPlayer: Boolean,
+        isCapture: Boolean
     ): Boolean {
         val hand = if (isPlayer) playerHand else aiHand
         val stack = if (isPlayer) playerStack else aiStack
@@ -96,61 +103,65 @@ class GameEngine {
 
         if (!hand.contains(playedCard)) return false
 
-        // 1. Validate target value
-        // The total value of selected items must equal the playedCard.value OR 
-        // we are adding to a construction (total + card = targetValue)
-        
-        val totalFloorValue = selectedFloorCards.sumOf { it.value }
-        val totalConstructionValue = selectedConstructions.sumOf { it.targetValue }
-        val opponentValue = recoveredOpponentCard?.value ?: 0
-        
-        val totalSelectedValue = totalFloorValue + totalConstructionValue + opponentValue
-        
-        // Option A: Full Capture (matching rank or sum)
-        if (totalSelectedValue == playedCard.value) {
-            stack.addAll((selectedFloorCards + selectedConstructions.flatMap { it.cards }).sortedByDescending { it.value })
-            if (recoveredOpponentCard != null) {
-                stack.add(recoveredOpponentCard)
-                opponentStack.remove(recoveredOpponentCard)
-            }
-            stack.add(playedCard)
-            
-            floor.removeAll(selectedFloorCards)
-            constructions.removeAll(selectedConstructions)
-            hand.remove(playedCard)
-            checkEndOfRound()
-            return true
-        }
-        
-        // Option B: Construction Creation/Addition
-        // Find existing construction if it exists
-        val myConstruction = constructions.find { it.ownerId == ownerId }
-        
-        if (myConstruction != null) {
-            // Already have a construction, can we add to it?
-            if (totalSelectedValue + playedCard.value == myConstruction.targetValue) {
-                myConstruction.cards.addAll(selectedFloorCards.sortedByDescending { it.value })
+        // Logic for multiple sets (e.g. 4+3 and 7 selected, played 7)
+        // Check if the total value of selections is a multiple of the played card
+        val floorVal = selectedFloorCards.sumOf { it.value }
+        val constructVal = selectedConstructions.sumOf { it.targetValue }
+        val oppVal = recoveredOpponentCard?.value ?: 0
+        val totalSelectedValue = floorVal + constructVal + oppVal
+
+        if (totalSelectedValue > 0 && totalSelectedValue % playedCard.value == 0) {
+            if (isCapture) {
+                // CAPTURE: Move to player's private stack
+                val allCardsToCapture = mutableListOf<Card>()
+                allCardsToCapture.addAll(selectedFloorCards)
+                selectedConstructions.forEach { allCardsToCapture.addAll(it.cards) }
                 if (recoveredOpponentCard != null) {
-                    myConstruction.cards.add(recoveredOpponentCard)
+                    allCardsToCapture.add(recoveredOpponentCard)
                     opponentStack.remove(recoveredOpponentCard)
                 }
-                myConstruction.cards.add(playedCard)
+                
+                stack.addAll(allCardsToCapture.sortedByDescending { it.value })
+                stack.add(playedCard)
                 
                 floor.removeAll(selectedFloorCards)
+                constructions.removeAll(selectedConstructions)
                 hand.remove(playedCard)
                 checkEndOfRound()
                 return true
+            } else {
+                // BUILD: Move to construction slot
+                var myConstruction = constructions.find { it.ownerId == ownerId }
+                
+                // Validation for multi-set building: playedCard must match target
+                if (myConstruction == null) {
+                    myConstruction = Construction(ownerId, playedCard.value)
+                    constructions.add(myConstruction)
+                }
+
+                if (myConstruction.targetValue == playedCard.value) {
+                    myConstruction.cards.addAll(selectedFloorCards)
+                    selectedConstructions.forEach { 
+                        if (it != myConstruction) {
+                            myConstruction!!.cards.addAll(it.cards)
+                            constructions.remove(it)
+                        }
+                    }
+                    if (recoveredOpponentCard != null) {
+                        myConstruction.cards.add(recoveredOpponentCard)
+                        opponentStack.remove(recoveredOpponentCard)
+                    }
+                    myConstruction.cards.add(playedCard)
+                    
+                    floor.removeAll(selectedFloorCards)
+                    hand.remove(playedCard)
+                    checkEndOfRound()
+                    return true
+                }
             }
-        } else {
-            // No construction, try to create one if selected value + played card > 0
-            // In Casino, usually you define a target value. For basic version, 
-            // if you didn't match the card value exactly, we assume you are building 
-            // to a higher value in your hand. This requires multi-stage play.
-            // But rules say: "Construction may only start with floor cards and one from the player hand"
-            // Let's assume for now the target value is what you say it is or what matches a card in hand.
         }
 
-        // Invalid play: "selected card from the player hand will go to floor"
+        // Invalid: Goes to floor
         hand.remove(playedCard)
         floor.add(playedCard)
         isPlayerTurn = !isPlayer
@@ -168,32 +179,26 @@ class GameEngine {
         }
     }
 
-    // Temporary basic capture for AI/Legacy compatibility
-    fun playCard(card: Card, isPlayer: Boolean): Boolean {
-        // Find automatic capture if possible
-        val hand = if (isPlayer) playerHand else aiHand
-        val stack = if (isPlayer) playerStack else aiStack
+    fun aiTurn() {
+        if (aiHand.isEmpty()) return
         
-        if (!hand.contains(card)) return false
+        // Greedy AI: looks for highest card to capture most cards
+        var bestCard: Card? = null
+        var bestCaptureCount = -1
         
-        val captured = findCapture(card, floor)
-        if (captured.isNotEmpty()) {
-            stack.addAll(captured.sortedByDescending { it.value })
-            stack.add(card)
-            floor.removeAll(captured)
-        } else {
-            floor.add(card)
+        for (card in aiHand) {
+            val capture = findCapture(card, floor)
+            if (capture.size > bestCaptureCount) {
+                bestCaptureCount = capture.size
+                bestCard = card
+            }
         }
         
-        hand.remove(card)
-        checkEndOfRound()
-        
-        if (!gameOver) {
-            isPlayerTurn = !isPlayerTurn
-        }
-        return true
+        val cardToPlay = bestCard ?: aiHand.minByOrNull { it.rank } ?: aiHand[0]
+        playCard(cardToPlay, false)
     }
 
+    // Standard Casino capture search (internal helper)
     private fun findCapture(playCard: Card, floorCards: List<Card>): List<Card> {
         val result = mutableListOf<Card>()
         val target = playCard.value
@@ -220,19 +225,21 @@ class GameEngine {
         return emptyList()
     }
 
-    fun aiTurn() {
-        if (aiHand.isEmpty()) return
-        var bestCard: Card? = null
-        var bestCaptureCount = -1
-        for (card in aiHand) {
-            val capture = findCapture(card, floor)
-            if (capture.size > bestCaptureCount) {
-                bestCaptureCount = capture.size
-                bestCard = card
-            }
-        }
-        val cardToPlay = bestCard ?: aiHand.minByOrNull { it.rank } ?: aiHand[0]
-        playCard(cardToPlay, false)
+    // Internal simple play for AI
+    private fun playCard(card: Card, isPlayer: Boolean): Boolean {
+        val hand = if (isPlayer) playerHand else aiHand
+        val stack = if (isPlayer) playerStack else aiStack
+        if (!hand.contains(card)) return false
+        val captured = findCapture(card, floor)
+        if (captured.isNotEmpty()) {
+            stack.addAll(captured.sortedByDescending { it.value })
+            stack.add(card)
+            floor.removeAll(captured)
+        } else floor.add(card)
+        hand.remove(card)
+        checkEndOfRound()
+        if (!gameOver) isPlayerTurn = !isPlayerTurn
+        return true
     }
 
     fun calculateScores(): Map<String, Int> {
