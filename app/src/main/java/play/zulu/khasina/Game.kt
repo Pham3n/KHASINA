@@ -103,16 +103,19 @@ class GameEngine {
 
         if (!hand.contains(playedCard)) return false
 
-        // Logic for multiple sets (e.g. 4+3 and 7 selected, played 7)
-        // Check if the total value of selections is a multiple of the played card
         val floorVal = selectedFloorCards.sumOf { it.value }
         val constructVal = selectedConstructions.sumOf { it.targetValue }
         val oppVal = recoveredOpponentCard?.value ?: 0
         val totalSelectedValue = floorVal + constructVal + oppVal
 
-        if (totalSelectedValue > 0 && totalSelectedValue % playedCard.value == 0) {
-            if (isCapture) {
-                // CAPTURE: Move to player's private stack
+        if (isCapture) {
+            // CAPTURE logic
+            // To capture, totalSelectedValue must match playedCard.value OR be a multiple
+            // Rules check: combinations must match the played card
+            if (totalSelectedValue > 0 && totalSelectedValue % playedCard.value == 0) {
+                // Confirm all selected constructions match the target value
+                if (selectedConstructions.any { it.targetValue != playedCard.value }) return false
+
                 val allCardsToCapture = mutableListOf<Card>()
                 allCardsToCapture.addAll(selectedFloorCards)
                 selectedConstructions.forEach { allCardsToCapture.addAll(it.cards) }
@@ -129,39 +132,63 @@ class GameEngine {
                 hand.remove(playedCard)
                 checkEndOfRound()
                 return true
+            }
+        } else {
+            // BUILD logic
+            var myExisting = constructions.find { it.ownerId == ownerId }
+            val targetValue: Int
+            
+            if (myExisting != null) {
+                targetValue = myExisting.targetValue
             } else {
-                // BUILD: Move to construction slot
-                var myConstruction = constructions.find { it.ownerId == ownerId }
-                
-                // Validation for multi-set building: playedCard must match target
-                if (myConstruction == null) {
-                    myConstruction = Construction(ownerId, playedCard.value)
-                    constructions.add(myConstruction)
-                }
+                // Creating new build: sum of selections + played card
+                targetValue = totalSelectedValue + playedCard.value
+            }
 
-                if (myConstruction.targetValue == playedCard.value) {
-                    myConstruction.cards.addAll(selectedFloorCards)
-                    selectedConstructions.forEach { 
-                        if (it != myConstruction) {
-                            myConstruction!!.cards.addAll(it.cards)
-                            constructions.remove(it)
+            // Rules: Must have targetValue card in hand to build/expand
+            val remainingHand = hand.toMutableList()
+            remainingHand.remove(playedCard)
+            val hasTargetInHand = remainingHand.any { it.value == targetValue }
+
+            if (hasTargetInHand) {
+                if (myExisting != null) {
+                    // Expansion/Pausing: Total sum must be targetValue
+                    if (totalSelectedValue + playedCard.value == targetValue) {
+                        myExisting.cards.addAll(selectedFloorCards)
+                        selectedConstructions.forEach { if (it != myExisting) { myExisting!!.cards.addAll(it.cards); constructions.remove(it) } }
+                        if (recoveredOpponentCard != null) {
+                            myExisting.cards.add(recoveredOpponentCard)
+                            opponentStack.remove(recoveredOpponentCard)
                         }
+                        myExisting.cards.add(playedCard)
+                        
+                        floor.removeAll(selectedFloorCards)
+                        hand.remove(playedCard)
+                        checkEndOfRound()
+                        return true
                     }
-                    if (recoveredOpponentCard != null) {
-                        myConstruction.cards.add(recoveredOpponentCard)
-                        opponentStack.remove(recoveredOpponentCard)
+                } else {
+                    // New Construction
+                    if (targetValue > playedCard.value) { // Must be a combination
+                        val newConstruction = Construction(ownerId, targetValue)
+                        newConstruction.cards.addAll(selectedFloorCards)
+                        if (recoveredOpponentCard != null) {
+                            newConstruction.cards.add(recoveredOpponentCard)
+                            opponentStack.remove(recoveredOpponentCard)
+                        }
+                        newConstruction.cards.add(playedCard)
+                        
+                        constructions.add(newConstruction)
+                        floor.removeAll(selectedFloorCards)
+                        hand.remove(playedCard)
+                        checkEndOfRound()
+                        return true
                     }
-                    myConstruction.cards.add(playedCard)
-                    
-                    floor.removeAll(selectedFloorCards)
-                    hand.remove(playedCard)
-                    checkEndOfRound()
-                    return true
                 }
             }
         }
 
-        // Invalid: Goes to floor
+        // Invalid: Goes to floor, no delay/timer
         hand.remove(playedCard)
         floor.add(playedCard)
         isPlayerTurn = !isPlayer

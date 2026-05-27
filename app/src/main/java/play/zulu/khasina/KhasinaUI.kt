@@ -205,12 +205,13 @@ fun ConstructionSection(
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         // Rules: only show placeholders for assigned players. In LOCAL, show 1. In Multiplayer, show 2.
-        val maxSlots = if (isMultiplayer) 2 else 1
-        repeat(maxSlots) { index ->
-            // Try to find construction for this slot (very simple mapping for now)
-            // In Local: index 0 is always the player.
-            // In Multi: index 0 might be host, index 1 might be client.
-            val construction = constructions.getOrNull(index)
+        val slots = if (isMultiplayer) 2 else 1
+        repeat(slots) { index ->
+            // Simple mapping: index 0 = Player/Host, index 1 = Client
+            // In Local mode, only Player construction at index 0 is shown
+            val construction = constructions.find { c -> 
+                if (index == 0) c.ownerId == "Player" else c.ownerId != "Player"
+            }
             if (construction != null) {
                 construction.topCard?.let { card ->
                     PlayingCard(
