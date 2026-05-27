@@ -43,110 +43,64 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onMenuClick) {
-                Icon(
-                    Icons.Default.Menu,
-                    contentDescription = null,
-                    tint = Color(0xFFE0BC7A)
-                )
+                Icon(Icons.Default.Menu, contentDescription = null, tint = Color(0xFFE0BC7A))
             }
-
-            Text(
-                text = "KHASINA",
-                color = Color(0xFFE0BC7A),
-                fontWeight = FontWeight.Bold,
-                fontSize = 28.sp
-            )
-
+            Text(text = "KHASINA", color = Color(0xFFE0BC7A), fontWeight = FontWeight.Bold, fontSize = 28.sp)
             Row {
-                IconButton(onClick = { }) {
-                    Icon(
-                        Icons.Default.Chat,
-                        contentDescription = null,
-                        tint = Color(0xFFE0BC7A)
-                    )
-                }
-                IconButton(onClick = { }) {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = null,
-                        tint = Color(0xFFE0BC7A)
-                    )
-                }
+                IconButton(onClick = { }) { Icon(Icons.Default.Chat, null, tint = Color(0xFFE0BC7A)) }
+                IconButton(onClick = { }) { Icon(Icons.Default.Person, null, tint = Color(0xFFE0BC7A)) }
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-
-        // ===== OPPONENT =====
-        PlayerHandPanel(
-            name = if (viewModel.isMultiplayer) "Opponent" else "AI",
-            cardsRemaining = engine.aiHand.size,
-            score = scores["AI"] ?: 0,
-            isTop = true,
-            topStackCard = engine.aiStack.lastOrNull()
-        )
-
+        ChatBox()
         Spacer(modifier = Modifier.height(12.dp))
 
         // ===== MAIN GAME AREA =====
-        Row(
-            modifier = Modifier.weight(1f)
-        ) {
+        Row(modifier = Modifier.weight(1f)) {
             // ===== FLOOR =====
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .background(
-                        Color(0xFF6A4528),
-                        RoundedCornerShape(20.dp)
-                    )
+                    .background(Color(0xFF6A4528), RoundedCornerShape(20.dp))
                     .padding(16.dp)
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    Text(
-                        text = "FLOOR",
-                        color = Color(0xFFEBC98F),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
-
+                    Text(text = "FLOOR", color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold, fontSize = 20.sp)
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    FloorSection(cards = engine.floor)
+                    FloorSection(
+                        cards = engine.floor,
+                        selectedCards = viewModel.selectedCardsFloor,
+                        onCardClick = { viewModel.onCardFloorClicked(it) }
+                    )
                 }
 
-                // Construction Section - Anchored to the bottom
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 8.dp)
-                ) {
-                    ConstructionSection()
+                Box(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)) {
+                    ConstructionSection(
+                        constructions = engine.constructions,
+                        selectedConstructions = viewModel.selectedConstructions,
+                        onConstructionClick = { viewModel.onConstructionClicked(it) }
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
             // ===== SIDE PANEL =====
-            Column(
-                modifier = Modifier.width(130.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Column(modifier = Modifier.width(130.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SideInfoCard(
-                    modifier = Modifier.weight(1f),
                     title = "TURN",
                     content = if (engine.gameOver) "GAME OVER" 
+                              else if (viewModel.isMultiStagePlayActive) "ADD MORE"
                               else if (engine.isPlayerTurn) "YOUR TURN" 
                               else if (viewModel.isMultiplayer) "OPPONENT" 
                               else "AI TURN"
                 )
 
-                // DECK Section with crd.png
+                // DECK
                 Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B12)),
                     shape = RoundedCornerShape(14.dp)
                 ) {
@@ -155,46 +109,19 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Text(
-                            text = "DECK",
-                            color = Color(0xFFEBC98F),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
+                        Text(text = "DECK", color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         Spacer(modifier = Modifier.height(4.dp))
                         if (engine.deck.isNotEmpty()) {
                             Box(modifier = Modifier.size(width = 49.dp, height = 70.dp)) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.crd),
-                                    contentDescription = "Deck",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.FillBounds
-                                )
-                                Text(
-                                    text = engine.deck.size.toString(),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.align(Alignment.Center),
-                                    fontSize = 14.sp
-                                )
+                                Image(painterResource(R.drawable.crd), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                                Text(engine.deck.size.toString(), color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
                             }
-                        } else {
-                            ConstructionPlaceholder()
-                        }
+                        } else { ConstructionPlaceholder() }
                     }
                 }
 
-                SideInfoCard(
-                    modifier = Modifier.weight(1f),
-                    title = "MODE",
-                    content = if (viewModel.isMultiplayer) viewModel.connectionType?.name ?: "ONLINE" else "LOCAL"
-                )
-
-                SideInfoCard(
-                    modifier = Modifier.weight(1f),
-                    title = "YOUR STACK",
-                    content = "${engine.playerStack.size} Cards"
-                )
+                SideInfoCard(title = "MODE", content = if (viewModel.isMultiplayer) viewModel.connectionType?.name ?: "ONLINE" else "LOCAL")
+                SideInfoCard(title = "YOUR STACK", content = "${engine.playerStack.size} Cards")
             }
         }
 
@@ -203,26 +130,18 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
         // ===== PLAYER HAND =====
         PlayerCardsSection(
             cards = engine.playerHand,
-            selectedCard = viewModel.selectedCard,
-            onCardSelect = { viewModel.selectedCard = it }
+            selectedCard = viewModel.selectedCardHand,
+            onCardSelect = { viewModel.onCardHandClicked(it) }
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         // ===== ACTION BUTTONS =====
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             GameActionButton(
                 text = "CAPTURE",
-                enabled = viewModel.selectedCard != null && engine.isPlayerTurn && !engine.gameOver
-            ) {
-                viewModel.selectedCard?.let { 
-                    viewModel.onCardClicked(it)
-                    viewModel.selectedCard = null
-                }
-            }
+                enabled = (viewModel.selectedCardHand != null) && engine.isPlayerTurn && !engine.gameOver
+            ) { viewModel.onCaptureClicked() }
 
             GameActionButton("RESET") { viewModel.resetGame() }
 
@@ -234,40 +153,63 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
         Spacer(modifier = Modifier.height(12.dp))
 
         // ===== PLAYER INFO =====
-        PlayerHandPanel(
-            name = "You",
-            cardsRemaining = engine.playerHand.size,
-            score = scores["Player"] ?: 0,
-            isTop = false,
-            topStackCard = engine.playerStack.lastOrNull()
-        )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            PlayerHandPanel(
+                modifier = Modifier.weight(1f),
+                name = if (viewModel.isMultiplayer) "Opponent" else "AI",
+                cardsRemaining = engine.aiHand.size,
+                score = scores["AI"] ?: 0,
+                isTop = true,
+                topStackCard = engine.aiStack.lastOrNull(),
+                isSelected = viewModel.selectedOpponentStackCard != null,
+                onClick = { viewModel.onOpponentStackClicked() }
+            )
+            PlayerHandPanel(
+                modifier = Modifier.weight(1f),
+                name = "You",
+                cardsRemaining = engine.playerHand.size,
+                score = scores["Player"] ?: 0,
+                isTop = false,
+                topStackCard = engine.playerStack.lastOrNull()
+            )
+        }
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun FloorSection(cards: List<Card>) {
-    // Wrapped row for floor cards
-    FlowRow(
+fun FloorSection(cards: List<Card>, selectedCards: List<Card>, onCardClick: (Card) -> Unit) {
+    androidx.compose.foundation.layout.FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         cards.forEach { card ->
-            PlayingCard(card)
+            PlayingCard(card, isSelected = selectedCards.contains(card), onClick = { onCardClick(card) })
         }
     }
 }
 
 @Composable
-fun ConstructionSection() {
-    // Fixed row of 4 slots at the bottom
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        repeat(4) {
-            ConstructionPlaceholder()
+fun ConstructionSection(
+    constructions: List<Construction>,
+    selectedConstructions: List<Construction>,
+    onConstructionClick: (Construction) -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        repeat(4) { index ->
+            val construction = constructions.getOrNull(index)
+            if (construction != null) {
+                construction.topCard?.let { card ->
+                    PlayingCard(
+                        card = card,
+                        isSelected = selectedConstructions.contains(construction),
+                        onClick = { onConstructionClick(construction) }
+                    )
+                }
+            } else {
+                ConstructionPlaceholder()
+            }
         }
     }
 }
@@ -278,61 +220,32 @@ fun ConstructionPlaceholder() {
         modifier = Modifier
             .size(width = 49.dp, height = 70.dp)
             .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-    }
+            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+    )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PlayerCardsSection(
-    cards: List<Card>,
-    selectedCard: Card?,
-    onCardSelect: (Card) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth().heightIn(min = 130.dp)) {
-        Text(
-            text = "YOUR HAND",
-            color = Color(0xFFEBC98F),
-            fontWeight = FontWeight.Bold,
-            fontSize = 20.sp
-        )
+fun PlayerCardsSection(cards: List<Card>, selectedCard: Card?, onCardSelect: (Card) -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(text = "YOUR HAND", color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold, fontSize = 20.sp)
         Spacer(modifier = Modifier.height(8.dp))
-
-        // Use FlowRow here too as requested
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            cards.forEach { card ->
-                PlayingCard(
-                    card = card,
-                    isSelected = card == selectedCard,
-                    onClick = { onCardSelect(card) }
-                )
+        LazyRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(end = 16.dp)) {
+            if (cards.isEmpty()) { items(3) { ConstructionPlaceholder() } }
+            else {
+                items(cards) { card ->
+                    PlayingCard(card = card, isSelected = card == selectedCard, onClick = { onCardSelect(card) })
+                }
             }
         }
     }
 }
 
 @Composable
-fun PlayingCard(
-    card: Card,
-    isSelected: Boolean = false,
-    onClick: (() -> Unit)? = null
-) {
-    val rankText = when(card.rank) {
-        1 -> "A"
-        else -> card.rank.toString()
-    }
+fun PlayingCard(card: Card, isSelected: Boolean = false, onClick: (() -> Unit)? = null) {
+    val rankText = when(card.rank) { 1 -> "A"; else -> card.rank.toString() }
     val suitColor = if (card.suit == Suit.HEARTS || card.suit == Suit.DIAMONDS) Color.Red else Color.Black
     val suitSymbol = when(card.suit) {
-        Suit.SPADES -> "♠"
-        Suit.DIAMONDS -> "♦"
-        Suit.HEARTS -> "♥"
-        Suit.CLUBS -> "♣"
+        Suit.SPADES -> "♠"; Suit.DIAMONDS -> "♦"; Suit.HEARTS -> "♥"; Suit.CLUBS -> "♣"
     }
 
     Card(
@@ -340,81 +253,45 @@ fun PlayingCard(
             .size(width = 49.dp, height = 70.dp)
             .then(if (isSelected) Modifier.border(2.dp, Color(0xFFEBC98F), RoundedCornerShape(8.dp)) else Modifier)
             .clickable(enabled = onClick != null) { onClick?.invoke() },
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFF3E3C3)
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E3C3)),
         shape = RoundedCornerShape(8.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            Text(
-                text = rankText,
-                modifier = Modifier.align(Alignment.TopStart).padding(2.dp),
-                color = suitColor,
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp
-            )
+            Text(text = rankText, modifier = Modifier.align(Alignment.TopStart).padding(2.dp), color = suitColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = suitSymbol,
-                    color = suitColor,
-                    fontSize = 21.sp
-                )
-                Text(
-                    text = rankText,
-                    color = suitColor,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
+                Text(text = suitSymbol, color = suitColor, fontSize = 21.sp)
+                Text(text = rankText, color = suitColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
-            Text(
-                text = rankText,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(2.dp),
-                color = suitColor,
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp
-            )
+            Text(text = rankText, modifier = Modifier.align(Alignment.BottomEnd).padding(2.dp), color = suitColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
         }
     }
 }
 
 @Composable
 fun PlayerHandPanel(
+    modifier: Modifier = Modifier,
     name: String,
     cardsRemaining: Int,
     score: Int,
     isTop: Boolean,
-    topStackCard: Card? = null
+    topStackCard: Card? = null,
+    isSelected: Boolean = false,
+    onClick: (() -> Unit)? = null
 ) {
     Card(
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF2A1B12)
-        ),
+        modifier = modifier
+            .then(if (isSelected) Modifier.border(2.dp, Color(0xFFEBC98F), RoundedCornerShape(16.dp)) else Modifier)
+            .clickable(enabled = onClick != null) { onClick?.invoke() },
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B12)),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(Color(0xFF6A4528), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                if (topStackCard != null) {
-                    Text(topStackCard.toString(), color = Color.White, fontSize = 12.sp)
-                }
+        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(48.dp).background(Color(0xFF6A4528), CircleShape), contentAlignment = Alignment.Center) {
+                if (topStackCard != null) { Text(text = topStackCard.toString(), color = Color.White, fontSize = 12.sp) }
             }
-
             Spacer(modifier = Modifier.width(12.dp))
-
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = name,
-                    color = Color(0xFFEBC98F),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
-                )
+                Text(text = name, color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Row {
                     Text(text = "Cards: $cardsRemaining", color = Color.White, fontSize = 12.sp)
                     Spacer(modifier = Modifier.width(8.dp))
@@ -426,45 +303,36 @@ fun PlayerHandPanel(
 }
 
 @Composable
-fun SideInfoCard(
-    modifier: Modifier = Modifier,
-    title: String,
-    content: String
-) {
+fun ChatBox(modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF2A1B12)
-        ),
-        shape = RoundedCornerShape(14.dp)
+        modifier = modifier.fillMaxWidth().height(80.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B12)),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(10.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.Start
-        ) {
-            Text(
-                text = title,
-                color = Color(0xFFEBC98F),
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = content,
-                color = Color.White,
-                fontSize = 14.sp
-            )
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(text = "[14:20] AI: I'll capture that 5!", color = Color.White, fontSize = 12.sp)
+            Text(text = "[14:21] You: Not if I build it into an 8.", color = Color(0xFFEBC98F), fontSize = 12.sp)
         }
     }
 }
 
 @Composable
-fun GameActionButton(
-    text: String,
-    enabled: Boolean = true,
-    onClick: () -> Unit
-) {
+fun SideInfoCard(modifier: Modifier = Modifier, title: String, content: String) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B12)),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.Start) {
+            Text(text = title, color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = content, color = Color.White, fontSize = 14.sp)
+        }
+    }
+}
+
+@Composable
+fun GameActionButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         enabled = enabled,
@@ -475,10 +343,6 @@ fun GameActionButton(
         ),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        Text(
-            text = text,
-            color = if (enabled) Color(0xFFEBC98F) else Color(0xFFEBC98F).copy(alpha = 0.5f),
-            fontSize = 12.sp
-        )
+        Text(text = text, color = if (enabled) Color(0xFFEBC98F) else Color(0xFFEBC98F).copy(alpha = 0.5f), fontSize = 12.sp)
     }
 }
