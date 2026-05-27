@@ -1,5 +1,6 @@
 package play.zulu.khasina
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +18,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -131,6 +134,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 SideInfoCard(
+                    modifier = Modifier.weight(1f),
                     title = "TURN",
                     content = if (engine.gameOver) "GAME OVER" 
                               else if (engine.isPlayerTurn) "YOUR TURN" 
@@ -138,17 +142,56 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                               else "AI TURN"
                 )
 
-                SideInfoCard(
-                    title = "DECK",
-                    content = "${engine.deck.size} Cards"
-                )
+                // DECK Section with crd.png
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B12)),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "DECK",
+                            color = Color(0xFFEBC98F),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        if (engine.deck.isNotEmpty()) {
+                            Box(modifier = Modifier.size(width = 49.dp, height = 70.dp)) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.crd),
+                                    contentDescription = "Deck",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.FillBounds
+                                )
+                                Text(
+                                    text = engine.deck.size.toString(),
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.align(Alignment.Center),
+                                    fontSize = 14.sp
+                                )
+                            }
+                        } else {
+                            ConstructionPlaceholder()
+                        }
+                    }
+                }
 
                 SideInfoCard(
+                    modifier = Modifier.weight(1f),
                     title = "MODE",
                     content = if (viewModel.isMultiplayer) viewModel.connectionType?.name ?: "ONLINE" else "LOCAL"
                 )
 
                 SideInfoCard(
+                    modifier = Modifier.weight(1f),
                     title = "YOUR STACK",
                     content = "${engine.playerStack.size} Cards"
                 )
@@ -205,7 +248,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
 @Composable
 fun FloorSection(cards: List<Card>) {
     // Wrapped row for floor cards
-    androidx.compose.foundation.layout.FlowRow(
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -241,13 +284,14 @@ fun ConstructionPlaceholder() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PlayerCardsSection(
     cards: List<Card>,
     selectedCard: Card?,
     onCardSelect: (Card) -> Unit
 ) {
-    Column {
+    Column(modifier = Modifier.fillMaxWidth().heightIn(min = 130.dp)) {
         Text(
             text = "YOUR HAND",
             color = Color(0xFFEBC98F),
@@ -256,11 +300,13 @@ fun PlayerCardsSection(
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        LazyRow(
+        // Use FlowRow here too as requested
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(end = 16.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(cards) { card ->
+            cards.forEach { card ->
                 PlayingCard(
                     card = card,
                     isSelected = card == selectedCard,
@@ -381,16 +427,22 @@ fun PlayerHandPanel(
 
 @Composable
 fun SideInfoCard(
+    modifier: Modifier = Modifier,
     title: String,
     content: String
 ) {
     Card(
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF2A1B12)
         ),
         shape = RoundedCornerShape(14.dp)
     ) {
-        Column(modifier = Modifier.padding(10.dp)) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.Start
+        ) {
             Text(
                 text = title,
                 color = Color(0xFFEBC98F),
