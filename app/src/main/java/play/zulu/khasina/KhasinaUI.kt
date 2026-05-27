@@ -10,7 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
@@ -47,7 +47,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
             }
             Text(text = "KHASINA", color = Color(0xFFE0BC7A), fontWeight = FontWeight.Bold, fontSize = 28.sp)
             Row {
-                IconButton(onClick = { }) { Icon(Icons.Default.Chat, null, tint = Color(0xFFE0BC7A)) }
+                IconButton(onClick = { }) { Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color(0xFFE0BC7A)) }
                 IconButton(onClick = { }) { Icon(Icons.Default.Person, null, tint = Color(0xFFE0BC7A)) }
             }
         }
