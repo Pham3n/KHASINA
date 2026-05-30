@@ -51,7 +51,9 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                     IconButton(onClick = { viewModel.isChatVisible = true }) { 
                         Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color(0xFFE0BC7A)) 
                     }
-                    IconButton(onClick = { }) { Icon(Icons.Default.Person, null, tint = Color(0xFFE0BC7A)) }
+                    IconButton(onClick = { viewModel.isProfileVisible = true }) { 
+                        Icon(Icons.Default.Person, null, tint = Color(0xFFE0BC7A)) 
+                    }
                 }
             }
 
@@ -191,6 +193,13 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
         if (viewModel.isChatVisible) {
             ChatsDropdownMenu(
                 onClose = { viewModel.isChatVisible = false }
+            )
+        }
+
+        // ===== PROFILE DROPDOWN OVERLAY =====
+        if (viewModel.isProfileVisible) {
+            ProfileDropdownMenu(
+                onClose = { viewModel.isProfileVisible = false }
             )
         }
     }

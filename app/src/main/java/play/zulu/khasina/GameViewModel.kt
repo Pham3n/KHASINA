@@ -30,6 +30,7 @@ class GameViewModel : ViewModel() {
     var selectedOpponentStackCard by mutableStateOf<Card?>(null)
     
     var isChatVisible by mutableStateOf(false)
+    var isProfileVisible by mutableStateOf(false)
     
     private var turnTimerJob: Job? = null
     var isMultiStagePlayActive by mutableStateOf(false)
