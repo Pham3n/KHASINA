@@ -114,13 +114,20 @@ fun ProfileDropdownMenu(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Pham3n",
+                            text = if (viewModel.authState == GameViewModel.AuthState.GUEST) "Guest" else (viewModel.currentUser ?: "User"),
                             color = Color.White,
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Bold
                         )
+                        
+                        val statusLabel = when (viewModel.connectionState) {
+                            GameViewModel.ConnectionState.ONLINE -> "Online"
+                            GameViewModel.ConnectionState.CONNECTING -> "Connecting..."
+                            else -> "Offline"
+                        }
+
                         Text(
-                            text = "Level 12 • Casual League",
+                            text = if (viewModel.authState == GameViewModel.AuthState.GUEST) "No profile" else "Level 12 • $statusLabel",
                             color = Color(0xFFD8B073),
                             fontSize = 16.sp
                         )

@@ -14,6 +14,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -91,6 +92,71 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
+fun UserStatusHeader(viewModel: GameViewModel) {
+    val statusColor = when {
+        viewModel.authState == GameViewModel.AuthState.GUEST -> Color.Gray
+        viewModel.connectionState == GameViewModel.ConnectionState.ONLINE -> Color.Green
+        viewModel.connectionState == GameViewModel.ConnectionState.CONNECTING -> Color.Yellow
+        else -> Color(0xFFFFA500) // Orange for Offline
+    }
+    
+    val statusText = when {
+        viewModel.authState == GameViewModel.AuthState.GUEST -> "Guest"
+        viewModel.connectionState == GameViewModel.ConnectionState.ONLINE -> "Online"
+        viewModel.connectionState == GameViewModel.ConnectionState.CONNECTING -> "Connecting..."
+        else -> "Offline"
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .background(statusColor, CircleShape)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(
+                text = if (viewModel.authState == GameViewModel.AuthState.GUEST) "Guest" else (viewModel.currentUser ?: "User"),
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = statusText,
+                color = Color(0xFFD6B37A),
+                fontSize = 14.sp
+            )
+        }
+    }
+}
+
+@Composable
+fun StatusSection(viewModel: GameViewModel) {
+    val engine = viewModel.engine
+    Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("TURN", color = Color(0xFFEBC98F), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(
+                if (engine.gameOver) "OVER" else if (engine.isPlayerTurn) "YOU" else "OPP",
+                color = Color.White,
+                fontSize = 12.sp
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("DECK", color = Color(0xFFEBC98F), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text("${engine.deck.size} Cards", color = Color.White, fontSize = 12.sp)
+        }
+    }
+}
+
+@Composable
 fun SidebarContent(
     viewModel: GameViewModel,
     checkAndRun: (Array<String>, () -> Unit) -> Unit,
@@ -106,6 +172,10 @@ fun SidebarContent(
             .width(280.dp)
             .padding(24.dp)
     ) {
+        // User Status Section
+        UserStatusHeader(viewModel)
+        Spacer(modifier = Modifier.height(24.dp))
+
         Text(
             "GAME MODES",
             color = Color(0xFFD6B37A),
@@ -113,6 +183,12 @@ fun SidebarContent(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 24.dp)
         )
+
+        // Status Section: TURN and DECK
+        StatusSection(viewModel)
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = Color(0xFF5A3822), thickness = 1.dp)
+        Spacer(modifier = Modifier.height(16.dp))
 
         // LOCAL PLAY
         ModeItem(

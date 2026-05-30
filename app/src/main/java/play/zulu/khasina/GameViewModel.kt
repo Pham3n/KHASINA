@@ -41,6 +41,12 @@ class GameViewModel : ViewModel() {
     var isMultiStagePlayActive by mutableStateOf(false)
 
     enum class ConnectionType { BLUETOOTH, LAN, ONLINE }
+    enum class AuthState { GUEST, AUTHENTICATED }
+    enum class ConnectionState { OFFLINE, CONNECTING, ONLINE }
+
+    var authState by mutableStateOf(AuthState.GUEST)
+    var connectionState by mutableStateOf(ConnectionState.OFFLINE)
+    var currentUser by mutableStateOf<String?>(null)
 
     private val gson = Gson()
     private val bluetoothService = BluetoothService(
@@ -54,10 +60,16 @@ class GameViewModel : ViewModel() {
     private val onlineService = OnlineService(
         onConnected = { 
             isConnectedToServer = true
+            connectionState = ConnectionState.ONLINE
             onConnected() 
         },
         onReceived = { message -> handleReceivedMessage(message) }
     )
+
+    private val gameServerPrimary = "192.168.8.101"
+    private val gamePortPrimary = 8000
+    private val gameServerSecondary = "192.168.8.102"
+    private val gamePortSecondary = 8001 
 
     init {
         // Initialize default user chats
@@ -75,7 +87,6 @@ class GameViewModel : ViewModel() {
             lastMessage = "Opponent connected! Your turn."
         } else lastMessage = "Connected! Waiting for host..."
         
-        // Mocking online players list update on connection
         if (isConnectedToServer) {
             onlinePlayers.clear()
             onlinePlayers.addAll(listOf("ZuluWarrior", "KhasinaKing", "StrategyQueen", "CardMaster"))
@@ -91,6 +102,31 @@ class GameViewModel : ViewModel() {
         }
     }
 
+    fun attemptServerConnection() {
+        viewModelScope.launch {
+            connectionState = ConnectionState.CONNECTING
+            var success = tryConnect(gameServerPrimary, gamePortPrimary)
+            if (!success) {
+                success = tryConnect(gameServerSecondary, gamePortSecondary)
+            }
+            
+            if (!success) {
+                connectionState = ConnectionState.OFFLINE
+                isConnectedToServer = false
+            }
+        }
+    }
+
+    private suspend fun tryConnect(host: String, port: Int): Boolean {
+        onlineService.connect(host, port)
+        var retry = 6
+        while (retry > 0 && !isConnectedToServer) {
+            delay(500)
+            retry--
+        }
+        return isConnectedToServer
+    }
+
     fun startHosting(type: ConnectionType) {
         isMultiplayer = true; isHost = true; connectionType = type; engine.useAI = false
         if (type == ConnectionType.BLUETOOTH) bluetoothService.startHost()
@@ -100,13 +136,10 @@ class GameViewModel : ViewModel() {
 
     fun connectToHost(address: String, type: ConnectionType) {
         if (type == ConnectionType.ONLINE) {
-            // Check if we are already connected via the global switch
             if (!isConnectedToServer) {
-                onlineService.connect(address)
+                attemptServerConnection()
             }
-            // Logic to transition mode to ONLINE after connection is confirmed
             viewModelScope.launch {
-                // Wait for connection (simple polling for this implementation)
                 var retry = 10
                 while (!isConnectedToServer && retry > 0) {
                     delay(500)
@@ -132,10 +165,11 @@ class GameViewModel : ViewModel() {
 
     fun toggleServerConnection(address: String, connect: Boolean) {
         if (connect) {
-            onlineService.connect(address)
+            attemptServerConnection()
         } else {
             onlineService.stop()
             isConnectedToServer = false
+            connectionState = ConnectionState.OFFLINE
             if (connectionType == ConnectionType.ONLINE) {
                 disconnect()
             }
@@ -162,7 +196,6 @@ class GameViewModel : ViewModel() {
             } else if (message == "RESET") {
                 resetLocalGame(); lastMessage = "Game reset by opponent."
             }
-            // For simplicity in this architecture, full state sync is safer than delta moves
         } catch (e: Exception) { lastMessage = "Error: ${e.message}" }
     }
 
@@ -264,6 +297,8 @@ class GameViewModel : ViewModel() {
         if (!userChats.any { it.title == "Main Lobby" }) {
             userChats.add(0, ChatItem("Main Lobby", "Public • Everyone", Icons.Default.Public, Color(0xFFEBC98F)))
         }
+        authState = AuthState.AUTHENTICATED
+        currentUser = username
         lastMessage = "Welcome, $username! Registered and connected."
     }
 
