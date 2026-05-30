@@ -10,14 +10,19 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import play.zulu.khasina.ui.theme.KHASINATheme
@@ -61,10 +66,10 @@ class MainActivity : ComponentActivity() {
                     drawerState = drawerState,
                     drawerContent = {
                         ModalDrawerSheet(
-                            drawerContainerColor = Color(0xFF2A1B12),
-                            drawerContentColor = Color(0xFFEBC98F)
+                            drawerContainerColor = Color(0xFF1B120B),
+                            drawerShape = RoundedCornerShape(0.dp)
                         ) {
-                            MultiplayerDrawerContent(
+                            SidebarContent(
                                 viewModel = viewModel,
                                 checkAndRun = ::checkAndRun,
                                 onActionStarted = { scope.launch { drawerState.close() } }
@@ -86,121 +91,166 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MultiplayerDrawerContent(
+fun SidebarContent(
     viewModel: GameViewModel,
     checkAndRun: (Array<String>, () -> Unit) -> Unit,
     onActionStarted: () -> Unit
 ) {
-    var showDeviceDialog by remember { mutableStateOf(false) }
-    var showIpDialog by remember { mutableStateOf(false) }
-    var showServerDialog by remember { mutableStateOf(false) }
+    var expandedMode by remember { mutableStateOf<GameViewModel.ConnectionType?>(null) }
     var showError by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text("Multiplayer", style = MaterialTheme.typography.headlineMedium, color = Color(0xFFEBC98F))
-        Spacer(modifier = Modifier.height(24.dp))
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(280.dp)
+            .padding(24.dp)
+    ) {
+        Text(
+            "GAME MODES",
+            color = Color(0xFFD6B37A),
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
 
-        // Bluetooth Section
-        MultiplayerCategory(
-            title = "Bluetooth",
-            onHost = {
-                val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE)
-                } else {
-                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-                }
-                checkAndRun(perms) {
-                    viewModel.startHosting(GameViewModel.ConnectionType.BLUETOOTH)
-                    onActionStarted()
-                }
-            },
-            onJoin = {
-                val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
-                } else {
-                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-                }
-                checkAndRun(perms) { showDeviceDialog = true }
+        // LOCAL PLAY
+        ModeItem(
+            title = "LOCAL PLAY",
+            icon = Icons.Default.Person,
+            isSelected = !viewModel.isMultiplayer,
+            onClick = {
+                viewModel.disconnect()
+                expandedMode = null
+                onActionStarted()
             }
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // WiFi Section
-        MultiplayerCategory(
-            title = "WiFi (LAN)",
-            onHost = {
-                viewModel.startHosting(GameViewModel.ConnectionType.LAN)
-                onActionStarted()
-            },
-            onJoin = { showIpDialog = true }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Online Section
-        OnlineCategory(
-            viewModel = viewModel,
-            onActionStarted = onActionStarted
-        )
-
-        if (viewModel.isMultiplayer) {
-            Spacer(modifier = Modifier.weight(1f))
-            Button(
-                onClick = { viewModel.disconnect(); onActionStarted() },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.6f))
-            ) {
-                Text("Disconnect")
+        // BLUETOOTH
+        ModeItem(
+            title = "BLUETOOTH",
+            icon = Icons.Default.Bluetooth,
+            isSelected = viewModel.isMultiplayer && viewModel.connectionType == GameViewModel.ConnectionType.BLUETOOTH,
+            onClick = {
+                expandedMode = if (expandedMode == GameViewModel.ConnectionType.BLUETOOTH) null else GameViewModel.ConnectionType.BLUETOOTH
             }
-        }
-    }
-
-    if (showDeviceDialog) {
-        DeviceSelectionDialog(
-            devices = viewModel.getPairedDevices(),
-            onDeviceSelected = { device ->
-                viewModel.connectToHost(device.address, GameViewModel.ConnectionType.BLUETOOTH)
-                showDeviceDialog = false
-                onActionStarted()
-            },
-            onDismiss = { showDeviceDialog = false }
         )
-    }
-
-    if (showIpDialog) {
-        IpInputDialog(
-            title = "Enter Host IP Address",
-            onIpEntered = { ip ->
-                viewModel.connectToHost(ip, GameViewModel.ConnectionType.LAN)
-                showIpDialog = false
-                onActionStarted()
-            },
-            onDismiss = { showIpDialog = false }
-        )
-    }
-
-    if (showServerDialog) {
-        IpInputDialog(
-            title = "Enter Server IP Address",
-            onIpEntered = { ip ->
-                viewModel.connectToHost(ip, GameViewModel.ConnectionType.ONLINE)
-                showServerDialog = false
-                
-                scope.launch {
-                    delay(5000)
-                    if (!viewModel.isConnectedToServer) {
-                        showError = true
-                        delay(3000)
-                        showError = false
+        AnimatedVisibility(visible = expandedMode == GameViewModel.ConnectionType.BLUETOOTH) {
+            Column(modifier = Modifier.padding(start = 32.dp)) {
+                SubModeItem("Host Game") {
+                    val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE)
                     } else {
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                    }
+                    checkAndRun(perms) {
+                        viewModel.startHosting(GameViewModel.ConnectionType.BLUETOOTH)
                         onActionStarted()
                     }
                 }
-            },
-            onDismiss = { showServerDialog = false }
+                var showDeviceDialog by remember { mutableStateOf(false) }
+                SubModeItem("Join Game") {
+                    val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+                    } else {
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                    }
+                    checkAndRun(perms) { showDeviceDialog = true }
+                }
+                if (showDeviceDialog) {
+                    DeviceSelectionDialog(
+                        devices = viewModel.getPairedDevices(),
+                        onDeviceSelected = { device ->
+                            viewModel.connectToHost(device.address, GameViewModel.ConnectionType.BLUETOOTH)
+                            showDeviceDialog = false
+                            onActionStarted()
+                        },
+                        onDismiss = { showDeviceDialog = false }
+                    )
+                }
+            }
+        }
+
+        // WIFI (LAN)
+        ModeItem(
+            title = "WIFI (LAN)",
+            icon = Icons.Default.Wifi,
+            isSelected = viewModel.isMultiplayer && viewModel.connectionType == GameViewModel.ConnectionType.LAN,
+            onClick = {
+                expandedMode = if (expandedMode == GameViewModel.ConnectionType.LAN) null else GameViewModel.ConnectionType.LAN
+            }
         )
+        AnimatedVisibility(visible = expandedMode == GameViewModel.ConnectionType.LAN) {
+            Column(modifier = Modifier.padding(start = 32.dp)) {
+                SubModeItem("Host Game") {
+                    viewModel.startHosting(GameViewModel.ConnectionType.LAN)
+                    onActionStarted()
+                }
+                var showIpDialog by remember { mutableStateOf(false) }
+                SubModeItem("Join Game") {
+                    showIpDialog = true
+                }
+                if (showIpDialog) {
+                    IpInputDialog(
+                        title = "Enter Host IP Address",
+                        onIpEntered = { ip ->
+                            viewModel.connectToHost(ip, GameViewModel.ConnectionType.LAN)
+                            showIpDialog = false
+                            onActionStarted()
+                        },
+                        onDismiss = { showIpDialog = false }
+                    )
+                }
+            }
+        }
+
+        // ONLINE PLAY
+        ModeItem(
+            title = "ONLINE PLAY",
+            icon = Icons.Default.Public,
+            isSelected = viewModel.isMultiplayer && viewModel.connectionType == GameViewModel.ConnectionType.ONLINE,
+            onClick = {
+                expandedMode = if (expandedMode == GameViewModel.ConnectionType.ONLINE) null else GameViewModel.ConnectionType.ONLINE
+            }
+        )
+        AnimatedVisibility(visible = expandedMode == GameViewModel.ConnectionType.ONLINE) {
+            Column(modifier = Modifier.padding(start = 32.dp)) {
+                if (!viewModel.isConnectedToServer) {
+                    Text("Log in from Profile to see players", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp, modifier = Modifier.padding(8.dp))
+                } else if (viewModel.onlinePlayers.isEmpty()) {
+                    Text("No players online", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp, modifier = Modifier.padding(8.dp))
+                } else {
+                    viewModel.onlinePlayers.forEach { player ->
+                        SubModeItem(player) {
+                            viewModel.connectToHost("10.0.2.2", GameViewModel.ConnectionType.ONLINE)
+                            onActionStarted()
+                            
+                            scope.launch {
+                                delay(5000)
+                                if (!viewModel.isConnectedToServer) {
+                                    showError = true
+                                    delay(3000)
+                                    showError = false
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        if (viewModel.isMultiplayer) {
+            Button(
+                onClick = { viewModel.disconnect(); onActionStarted() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7A2F24)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("DISCONNECT", fontWeight = FontWeight.Bold)
+            }
+        }
     }
 
     if (showError) {
@@ -216,71 +266,30 @@ fun MultiplayerDrawerContent(
 }
 
 @Composable
-fun OnlineCategory(
-    viewModel: GameViewModel,
-    onActionStarted: () -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column {
-        Surface(
-            modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
-            color = Color.Transparent
+fun ModeItem(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, isSelected: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        color = if (isSelected) Color(0xFF5A3822) else Color.Transparent,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(modifier = Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Online", style = MaterialTheme.typography.titleLarge, color = Color(0xFFEBC98F))
-                Spacer(modifier = Modifier.weight(1f))
-                Text(if (expanded) "▲" else "▼", color = Color(0xFFEBC98F))
-            }
-        }
-        if (expanded) {
-            Column(modifier = Modifier.padding(start = 16.dp)) {
-                if (!viewModel.isConnectedToServer) {
-                    Text("Log in from Profile to see players", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
-                } else if (viewModel.onlinePlayers.isEmpty()) {
-                    Text("No players in your league online", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
-                } else {
-                    viewModel.onlinePlayers.forEach { player ->
-                        TextButton(onClick = { 
-                            // In a real app, this would send an invite. For now, we connect.
-                            viewModel.connectToHost("10.0.2.2", GameViewModel.ConnectionType.ONLINE)
-                            onActionStarted()
-                        }) {
-                            Text(player, color = Color.White)
-                        }
-                    }
-                }
-            }
+            Icon(icon, contentDescription = null, tint = if (isSelected) Color.White else Color(0xFFD6B37A))
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(title, color = Color.White, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
-fun MultiplayerCategory(
-    title: String,
-    onHost: (() -> Unit)?,
-    onJoin: () -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column {
-        Surface(
-            modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
-            color = Color.Transparent
-        ) {
-            Row(modifier = Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(title, style = MaterialTheme.typography.titleLarge, color = Color(0xFFEBC98F))
-                Spacer(modifier = Modifier.weight(1f))
-                Text(if (expanded) "▲" else "▼", color = Color(0xFFEBC98F))
-            }
-        }
-        if (expanded) {
-            Column(modifier = Modifier.padding(start = 16.dp)) {
-                if (onHost != null) {
-                    TextButton(onClick = onHost) { Text("Host Game", color = Color.White) }
-                }
-                TextButton(onClick = onJoin) { Text("Join Game", color = Color.White) }
-            }
+fun SubModeItem(title: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.ArrowRight, contentDescription = null, tint = Color(0xFFD6B37A))
+            Text(title, color = Color.LightGray)
         }
     }
 }
