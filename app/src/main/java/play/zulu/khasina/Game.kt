@@ -136,13 +136,19 @@ class GameEngine {
         } else {
             // BUILD logic
             var myExisting = constructions.find { it.ownerId == ownerId }
-            val targetValue: Int
+            val sum = totalSelectedValue + playedCard.value
             
-            if (myExisting != null) {
-                targetValue = myExisting.targetValue
+            // Determine the target value
+            val targetValue = if (myExisting != null) {
+                myExisting.targetValue
             } else {
-                // Creating new build: sum of selections + played card
-                targetValue = totalSelectedValue + playedCard.value
+                // Look for a valid target in hand that is a divisor of the sum
+                // (e.g. sum 14, if have 7 in hand, target is 7)
+                val remainingHandCards = hand.toMutableList()
+                remainingHandCards.remove(playedCard)
+                remainingHandCards.map { it.value }.distinct()
+                    .filter { sum % it == 0 }
+                    .maxOrNull() ?: -1 
             }
 
             // Rules: Must have targetValue card in hand to build/expand
@@ -150,41 +156,30 @@ class GameEngine {
             remainingHand.remove(playedCard)
             val hasTargetInHand = remainingHand.any { it.value == targetValue }
 
-            if (hasTargetInHand) {
-                if (myExisting != null) {
-                    // Expansion/Pausing: Total sum must be targetValue
-                    if (totalSelectedValue + playedCard.value == targetValue) {
-                        myExisting.cards.addAll(selectedFloorCards)
-                        selectedConstructions.forEach { if (it != myExisting) { myExisting!!.cards.addAll(it.cards); constructions.remove(it) } }
-                        if (recoveredOpponentCard != null) {
-                            myExisting.cards.add(recoveredOpponentCard)
-                            opponentStack.remove(recoveredOpponentCard)
-                        }
-                        myExisting.cards.add(playedCard)
-                        
-                        floor.removeAll(selectedFloorCards)
-                        hand.remove(playedCard)
-                        checkEndOfRound()
-                        return true
-                    }
-                } else {
-                    // New Construction
-                    if (targetValue > playedCard.value) { // Must be a combination
-                        val newConstruction = Construction(ownerId, targetValue)
-                        newConstruction.cards.addAll(selectedFloorCards)
-                        if (recoveredOpponentCard != null) {
-                            newConstruction.cards.add(recoveredOpponentCard)
-                            opponentStack.remove(recoveredOpponentCard)
-                        }
-                        newConstruction.cards.add(playedCard)
-                        
-                        constructions.add(newConstruction)
-                        floor.removeAll(selectedFloorCards)
-                        hand.remove(playedCard)
-                        checkEndOfRound()
-                        return true
+            if (targetValue > 0 && hasTargetInHand && sum % targetValue == 0) {
+                if (myExisting == null) {
+                    myExisting = Construction(ownerId, targetValue)
+                    constructions.add(myExisting)
+                }
+                
+                // Add cards to the existing or new construction
+                myExisting.cards.addAll(selectedFloorCards)
+                selectedConstructions.forEach { 
+                    if (it != myExisting) {
+                        myExisting!!.cards.addAll(it.cards)
+                        constructions.remove(it)
                     }
                 }
+                if (recoveredOpponentCard != null) {
+                    myExisting.cards.add(recoveredOpponentCard)
+                    opponentStack.remove(recoveredOpponentCard)
+                }
+                myExisting.cards.add(playedCard)
+                
+                floor.removeAll(selectedFloorCards)
+                hand.remove(playedCard)
+                checkEndOfRound()
+                return true
             }
         }
 
