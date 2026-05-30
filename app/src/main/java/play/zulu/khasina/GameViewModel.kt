@@ -22,6 +22,7 @@ class GameViewModel : ViewModel() {
     var isHost by mutableStateOf(false)
     var connectionType by mutableStateOf<ConnectionType?>(null)
     var isConnectedToServer by mutableStateOf(false)
+    val onlinePlayers = mutableStateListOf<String>() // Mock online players list
 
     // Selection State
     var selectedCardHand by mutableStateOf<Card?>(null)
@@ -59,6 +60,12 @@ class GameViewModel : ViewModel() {
             sendData("SYNC:${gson.toJson(engine.exportState())}")
             lastMessage = "Opponent connected! Your turn."
         } else lastMessage = "Connected! Waiting for host..."
+        
+        // Mocking online players list update on connection
+        if (isConnectedToServer) {
+            onlinePlayers.clear()
+            onlinePlayers.addAll(listOf("ZuluWarrior", "KhasinaKing", "StrategyQueen", "CardMaster"))
+        }
     }
 
     private fun sendData(data: String) {

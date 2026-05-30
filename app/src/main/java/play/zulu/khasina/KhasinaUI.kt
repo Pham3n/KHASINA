@@ -199,6 +199,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
         // ===== PROFILE DROPDOWN OVERLAY =====
         if (viewModel.isProfileVisible) {
             ProfileDropdownMenu(
+                viewModel = viewModel,
                 onClose = { viewModel.isProfileVisible = false }
             )
         }

@@ -27,6 +27,7 @@ data class ProfileMenuItem(
 
 @Composable
 fun ProfileDropdownMenu(
+    viewModel: GameViewModel,
     onClose: () -> Unit = {}
 ) {
 
@@ -138,14 +139,16 @@ fun ProfileDropdownMenu(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(70.dp),
-                    onClick = { },
+                    onClick = { 
+                        viewModel.toggleServerConnection("10.0.2.2", !viewModel.isConnectedToServer)
+                    },
                     shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF7A2F24)
+                        containerColor = if (viewModel.isConnectedToServer) Color(0xFF7A2F24) else Color(0xFF476B2D)
                     )
                 ) {
                     Text(
-                        text = "LOG OUT",
+                        text = if (viewModel.isConnectedToServer) "LOG OUT" else "LOG IN",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp

@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import play.zulu.khasina.ui.theme.KHASINATheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -68,28 +69,6 @@ class MainActivity : ComponentActivity() {
                                 checkAndRun = ::checkAndRun,
                                 onActionStarted = { scope.launch { drawerState.close() } }
                             )
-
-                            // Server connection switch at bottom
-                            Spacer(modifier = Modifier.weight(1f))
-                            HorizontalDivider(color = Color(0xFFEBC98F).copy(alpha = 0.2f))
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Connect to Server", color = Color(0xFFEBC98F))
-                                Switch(
-                                    checked = viewModel.isConnectedToServer,
-                                    onCheckedChange = { 
-                                        // Hardcoding test IP for Android Emulator (Host machine)
-                                        viewModel.toggleServerConnection("10.0.2.2", it) 
-                                    },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = Color(0xFFEBC98F),
-                                        checkedTrackColor = Color(0xFF5A3822)
-                                    )
-                                )
-                            }
                         }
                     }
                 ) {
@@ -161,10 +140,9 @@ fun MultiplayerDrawerContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Online Section
-        MultiplayerCategory(
-            title = "Online",
-            onHost = null, 
-            onJoin = { showServerDialog = true }
+        OnlineCategory(
+            viewModel = viewModel,
+            onActionStarted = onActionStarted
         )
 
         if (viewModel.isMultiplayer) {
@@ -232,6 +210,46 @@ fun MultiplayerDrawerContent(
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text("connection error", color = Color.White, modifier = Modifier.padding(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun OnlineCategory(
+    viewModel: GameViewModel,
+    onActionStarted: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column {
+        Surface(
+            modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+            color = Color.Transparent
+        ) {
+            Row(modifier = Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Online", style = MaterialTheme.typography.titleLarge, color = Color(0xFFEBC98F))
+                Spacer(modifier = Modifier.weight(1f))
+                Text(if (expanded) "▲" else "▼", color = Color(0xFFEBC98F))
+            }
+        }
+        if (expanded) {
+            Column(modifier = Modifier.padding(start = 16.dp)) {
+                if (!viewModel.isConnectedToServer) {
+                    Text("Log in from Profile to see players", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+                } else if (viewModel.onlinePlayers.isEmpty()) {
+                    Text("No players in your league online", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+                } else {
+                    viewModel.onlinePlayers.forEach { player ->
+                        TextButton(onClick = { 
+                            // In a real app, this would send an invite. For now, we connect.
+                            viewModel.connectToHost("10.0.2.2", GameViewModel.ConnectionType.ONLINE)
+                            onActionStarted()
+                        }) {
+                            Text(player, color = Color.White)
+                        }
+                    }
+                }
             }
         }
     }
