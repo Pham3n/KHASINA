@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import play.zulu.khasina.ui.theme.KHASINATheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -66,6 +68,28 @@ class MainActivity : ComponentActivity() {
                                 checkAndRun = ::checkAndRun,
                                 onActionStarted = { scope.launch { drawerState.close() } }
                             )
+
+                            // Server connection switch at bottom
+                            Spacer(modifier = Modifier.weight(1f))
+                            HorizontalDivider(color = Color(0xFFEBC98F).copy(alpha = 0.2f))
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Connect to Server", color = Color(0xFFEBC98F))
+                                Switch(
+                                    checked = viewModel.isConnectedToServer,
+                                    onCheckedChange = { 
+                                        // Hardcoding test IP for Android Emulator (Host machine)
+                                        viewModel.toggleServerConnection("10.0.2.2", it) 
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = Color(0xFFEBC98F),
+                                        checkedTrackColor = Color(0xFF5A3822)
+                                    )
+                                )
+                            }
                         }
                     }
                 ) {
@@ -91,6 +115,8 @@ fun MultiplayerDrawerContent(
     var showDeviceDialog by remember { mutableStateOf(false) }
     var showIpDialog by remember { mutableStateOf(false) }
     var showServerDialog by remember { mutableStateOf(false) }
+    var showError by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Column(modifier = Modifier.padding(16.dp)) {
         Text("Multiplayer", style = MaterialTheme.typography.headlineMedium, color = Color(0xFFEBC98F))
@@ -137,7 +163,7 @@ fun MultiplayerDrawerContent(
         // Online Section
         MultiplayerCategory(
             title = "Online",
-            onHost = null,
+            onHost = null, 
             onJoin = { showServerDialog = true }
         )
 
@@ -183,10 +209,31 @@ fun MultiplayerDrawerContent(
             onIpEntered = { ip ->
                 viewModel.connectToHost(ip, GameViewModel.ConnectionType.ONLINE)
                 showServerDialog = false
-                onActionStarted()
+                
+                scope.launch {
+                    delay(5000)
+                    if (!viewModel.isConnectedToServer) {
+                        showError = true
+                        delay(3000)
+                        showError = false
+                    } else {
+                        onActionStarted()
+                    }
+                }
             },
             onDismiss = { showServerDialog = false }
         )
+    }
+
+    if (showError) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Surface(
+                color = Color.Black.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("connection error", color = Color.White, modifier = Modifier.padding(16.dp))
+            }
+        }
     }
 }
 

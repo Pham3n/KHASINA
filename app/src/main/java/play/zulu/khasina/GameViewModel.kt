@@ -21,6 +21,7 @@ class GameViewModel : ViewModel() {
     var isMultiplayer by mutableStateOf(false)
     var isHost by mutableStateOf(false)
     var connectionType by mutableStateOf<ConnectionType?>(null)
+    var isConnectedToServer by mutableStateOf(false)
 
     // Selection State
     var selectedCardHand by mutableStateOf<Card?>(null)
@@ -43,7 +44,10 @@ class GameViewModel : ViewModel() {
         onReceived = { message -> handleReceivedMessage(message) }
     )
     private val onlineService = OnlineService(
-        onConnected = { onConnected() },
+        onConnected = { 
+            isConnectedToServer = true
+            onConnected() 
+        },
         onReceived = { message -> handleReceivedMessage(message) }
     )
 
@@ -71,11 +75,47 @@ class GameViewModel : ViewModel() {
     }
 
     fun connectToHost(address: String, type: ConnectionType) {
-        isMultiplayer = true; isHost = false; connectionType = type; engine.useAI = false
-        if (type == ConnectionType.BLUETOOTH) bluetoothService.connect(address)
-        else if (type == ConnectionType.LAN) lanService.connect(address)
-        else onlineService.connect(address)
-        lastMessage = "Connecting..."
+        if (type == ConnectionType.ONLINE) {
+            // Check if we are already connected via the global switch
+            if (!isConnectedToServer) {
+                onlineService.connect(address)
+            }
+            // Logic to transition mode to ONLINE after connection is confirmed
+            viewModelScope.launch {
+                // Wait for connection (simple polling for this implementation)
+                var retry = 10
+                while (!isConnectedToServer && retry > 0) {
+                    delay(500)
+                    retry--
+                }
+                if (isConnectedToServer) {
+                    isMultiplayer = true
+                    isHost = false
+                    connectionType = type
+                    engine.useAI = false
+                    lastMessage = "Connected to Server. Joined lobby."
+                } else {
+                    lastMessage = "Connection failed."
+                }
+            }
+        } else {
+            isMultiplayer = true; isHost = false; connectionType = type; engine.useAI = false
+            if (type == ConnectionType.BLUETOOTH) bluetoothService.connect(address)
+            else if (type == ConnectionType.LAN) lanService.connect(address)
+            lastMessage = "Connecting..."
+        }
+    }
+
+    fun toggleServerConnection(address: String, connect: Boolean) {
+        if (connect) {
+            onlineService.connect(address)
+        } else {
+            onlineService.stop()
+            isConnectedToServer = false
+            if (connectionType == ConnectionType.ONLINE) {
+                disconnect()
+            }
+        }
     }
 
     fun disconnect() {
