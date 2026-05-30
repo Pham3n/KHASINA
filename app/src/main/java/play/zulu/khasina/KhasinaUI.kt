@@ -34,6 +34,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color(0xFF1A120D))
+                .statusBarsPadding()
                 .padding(12.dp)
         ) {
 
