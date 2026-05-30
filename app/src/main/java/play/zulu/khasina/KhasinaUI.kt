@@ -29,154 +29,168 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
     val engine = viewModel.engine
     val scores = engine.calculateScores()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF1A120D))
-            .padding(12.dp)
-    ) {
-
-        // ===== TOP BAR =====
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF1A120D))
+                .padding(12.dp)
         ) {
-            IconButton(onClick = onMenuClick) {
-                Icon(Icons.Default.Menu, contentDescription = null, tint = Color(0xFFE0BC7A))
-            }
-            Text(text = "KHASINA", color = Color(0xFFE0BC7A), fontWeight = FontWeight.Bold, fontSize = 28.sp)
-            Row {
-                IconButton(onClick = { }) { Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color(0xFFE0BC7A)) }
-                IconButton(onClick = { }) { Icon(Icons.Default.Person, null, tint = Color(0xFFE0BC7A)) }
-            }
-        }
 
-        Spacer(modifier = Modifier.height(12.dp))
-        ChatBox()
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ===== MAIN GAME AREA =====
-        Row(modifier = Modifier.weight(1f)) {
-            // ===== FLOOR =====
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .background(Color(0xFF6A4528), RoundedCornerShape(20.dp))
-                    .padding(16.dp)
+            // ===== TOP BAR =====
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Text(text = "FLOOR", color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    FloorSection(
-                        cards = engine.floor,
-                        selectedCards = viewModel.selectedCardsFloor,
-                        onCardClick = { viewModel.onCardFloorClicked(it) }
-                    )
+                IconButton(onClick = onMenuClick) {
+                    Icon(Icons.Default.Menu, contentDescription = null, tint = Color(0xFFE0BC7A))
                 }
-
-                Box(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)) {
-                    ConstructionSection(
-                        constructions = engine.constructions,
-                        selectedConstructions = viewModel.selectedConstructions,
-                        onConstructionClick = { viewModel.onConstructionClicked(it) },
-                        isMultiplayer = viewModel.isMultiplayer
-                    )
+                Text(text = "KHASINA", color = Color(0xFFE0BC7A), fontWeight = FontWeight.Bold, fontSize = 28.sp)
+                Row {
+                    IconButton(onClick = { viewModel.isChatVisible = true }) { 
+                        Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color(0xFFE0BC7A)) 
+                    }
+                    IconButton(onClick = { }) { Icon(Icons.Default.Person, null, tint = Color(0xFFE0BC7A)) }
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            ChatBox()
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // ===== SIDE PANEL =====
-            Column(modifier = Modifier.width(130.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SideInfoCard(
-                    title = "TURN",
-                    content = if (engine.gameOver) "GAME OVER" 
-                              else if (viewModel.isMultiStagePlayActive) "YOUR TURN"
-                              else if (engine.isPlayerTurn) "YOUR TURN" 
-                              else if (viewModel.isMultiplayer) "OPPONENT" 
-                              else "AI TURN"
-                )
-
-                // DECK
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B12)),
-                    shape = RoundedCornerShape(14.dp)
+            // ===== MAIN GAME AREA =====
+            Row(modifier = Modifier.weight(1f)) {
+                // ===== FLOOR =====
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(Color(0xFF6A4528), RoundedCornerShape(20.dp))
+                        .padding(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(10.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(text = "DECK", color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        if (engine.deck.isNotEmpty()) {
-                            Box(modifier = Modifier.size(width = 49.dp, height = 70.dp)) {
-                                Image(painterResource(R.drawable.crd), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                                Text(engine.deck.size.toString(), color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
-                            }
-                        } else { ConstructionPlaceholder() }
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Text(text = "FLOOR", color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        FloorSection(
+                            cards = engine.floor,
+                            selectedCards = viewModel.selectedCardsFloor,
+                            onCardClick = { viewModel.onCardFloorClicked(it) }
+                        )
+                    }
+
+                    Box(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)) {
+                        ConstructionSection(
+                            constructions = engine.constructions,
+                            selectedConstructions = viewModel.selectedConstructions,
+                            onConstructionClick = { viewModel.onConstructionClicked(it) },
+                            isMultiplayer = viewModel.isMultiplayer
+                        )
                     }
                 }
 
-                SideInfoCard(title = "MODE", content = if (viewModel.isMultiplayer) viewModel.connectionType?.name ?: "ONLINE" else "LOCAL")
-                SideInfoCard(title = "YOUR STACK", content = "${engine.playerStack.size} Cards")
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // ===== SIDE PANEL =====
+                Column(modifier = Modifier.width(130.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SideInfoCard(
+                        title = "TURN",
+                        content = if (engine.gameOver) "GAME OVER" 
+                                  else if (viewModel.isMultiStagePlayActive) "YOUR TURN"
+                                  else if (engine.isPlayerTurn) "YOUR TURN" 
+                                  else if (viewModel.isMultiplayer) "OPPONENT" 
+                                  else "AI TURN"
+                    )
+
+                    // DECK
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B12)),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(text = "DECK", color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            if (engine.deck.isNotEmpty()) {
+                                Box(modifier = Modifier.size(width = 49.dp, height = 70.dp)) {
+                                    Image(painterResource(R.drawable.crd), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                                    Text(engine.deck.size.toString(), color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
+                                }
+                            } else { ConstructionPlaceholder() }
+                        }
+                    }
+
+                    SideInfoCard(title = "MODE", content = if (viewModel.isMultiplayer) viewModel.connectionType?.name ?: "ONLINE" else "LOCAL")
+                    SideInfoCard(title = "YOUR STACK", content = "${engine.playerStack.size} Cards")
+                }
             }
-        }
 
-        Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-        // ===== PLAYER HAND =====
-        PlayerCardsSection(
-            cards = engine.playerHand,
-            selectedCard = viewModel.selectedCardHand,
-            onCardSelect = { viewModel.onCardHandClicked(it) }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ===== ACTION BUTTONS =====
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            GameActionButton(
-                text = "CAPTURE",
-                enabled = (viewModel.selectedCardHand != null) && engine.isPlayerTurn && !engine.gameOver
-            ) { viewModel.onCaptureClicked() }
-
-            GameActionButton(
-                text = "BUILD",
-                enabled = (viewModel.selectedCardHand != null) && engine.isPlayerTurn && !engine.gameOver
-            ) { viewModel.onBuildClicked() }
-
-            GameActionButton("RESET") { viewModel.resetGame() }
-
-            if (viewModel.isMultiplayer) {
-                GameActionButton("EXIT") { viewModel.disconnect() }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ===== PLAYER INFO =====
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            PlayerHandPanel(
-                modifier = Modifier.weight(1f),
-                name = if (viewModel.isMultiplayer) "Opponent" else "AI",
-                cardsRemaining = engine.aiHand.size,
-                score = scores["AI"] ?: 0,
-                isTop = true,
-                topStackCard = engine.aiStack.lastOrNull(),
-                isSelected = viewModel.selectedOpponentStackCard != null,
-                onClick = { viewModel.onOpponentStackClicked() }
+            // ===== PLAYER HAND =====
+            PlayerCardsSection(
+                cards = engine.playerHand,
+                selectedCard = viewModel.selectedCardHand,
+                onCardSelect = { viewModel.onCardHandClicked(it) }
             )
-            PlayerHandPanel(
-                modifier = Modifier.weight(1f),
-                name = "You",
-                cardsRemaining = engine.playerHand.size,
-                score = scores["Player"] ?: 0,
-                isTop = false,
-                topStackCard = engine.playerStack.lastOrNull()
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ===== ACTION BUTTONS =====
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                GameActionButton(
+                    text = "CAPTURE",
+                    enabled = (viewModel.selectedCardHand != null) && engine.isPlayerTurn && !engine.gameOver
+                ) { viewModel.onCaptureClicked() }
+
+                GameActionButton(
+                    text = "BUILD",
+                    enabled = (viewModel.selectedCardHand != null) && engine.isPlayerTurn && !engine.gameOver
+                ) { viewModel.onBuildClicked() }
+
+                GameActionButton("RESET") { viewModel.resetGame() }
+
+                if (viewModel.isMultiplayer) {
+                    GameActionButton("EXIT") { viewModel.disconnect() }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ===== PLAYER INFO =====
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                PlayerHandPanel(
+                    modifier = Modifier.weight(1f),
+                    name = if (viewModel.isMultiplayer) "Opponent" else "AI",
+                    cardsRemaining = engine.aiHand.size,
+                    score = scores["AI"] ?: 0,
+                    isTop = true,
+                    topStackCard = engine.aiStack.lastOrNull(),
+                    isSelected = viewModel.selectedOpponentStackCard != null,
+                    onClick = { viewModel.onOpponentStackClicked() }
+                )
+                PlayerHandPanel(
+                    modifier = Modifier.weight(1f),
+                    name = "You",
+                    cardsRemaining = engine.playerHand.size,
+                    score = scores["Player"] ?: 0,
+                    isTop = false,
+                    topStackCard = engine.playerStack.lastOrNull()
+                )
+            }
+        }
+
+        // ===== CHATS DROPDOWN OVERLAY =====
+        if (viewModel.isChatVisible) {
+            ChatsDropdownMenu(
+                onClose = { viewModel.isChatVisible = false }
             )
         }
     }
@@ -204,11 +218,8 @@ fun ConstructionSection(
     isMultiplayer: Boolean
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        // Rules: only show placeholders for assigned players. In LOCAL, show 1. In Multiplayer, show 2.
         val slots = if (isMultiplayer) 2 else 1
         repeat(slots) { index ->
-            // Simple mapping: index 0 = Player/Host, index 1 = Client
-            // In Local mode, only Player construction at index 0 is shown
             val construction = constructions.find { c -> 
                 if (index == 0) c.ownerId == "Player" else c.ownerId != "Player"
             }

@@ -29,6 +29,8 @@ class GameViewModel : ViewModel() {
     val selectedConstructions = mutableStateListOf<Construction>()
     var selectedOpponentStackCard by mutableStateOf<Card?>(null)
     
+    var isChatVisible by mutableStateOf(false)
+    
     private var turnTimerJob: Job? = null
     var isMultiStagePlayActive by mutableStateOf(false)
 
