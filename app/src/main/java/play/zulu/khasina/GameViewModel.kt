@@ -1,5 +1,8 @@
 package play.zulu.khasina
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +26,7 @@ class GameViewModel : ViewModel() {
     var connectionType by mutableStateOf<ConnectionType?>(null)
     var isConnectedToServer by mutableStateOf(false)
     val onlinePlayers = mutableStateListOf<String>() // Mock online players list
+    val userChats = mutableStateListOf<ChatItem>()
 
     // Selection State
     var selectedCardHand by mutableStateOf<Card?>(null)
@@ -54,6 +58,16 @@ class GameViewModel : ViewModel() {
         },
         onReceived = { message -> handleReceivedMessage(message) }
     )
+
+    init {
+        // Initialize default user chats
+        userChats.addAll(listOf(
+            ChatItem("Friends", "Private • 3 members", Icons.Default.Groups, Color(0xFF1C6E6A)),
+            ChatItem("Khasina Players", "Private • 8 members", Icons.Default.Person, Color(0xFF7A431F)),
+            ChatItem("Umlabalaba Club", "Private • 12 members", Icons.Default.SportsEsports, Color(0xFF244E7A)),
+            ChatItem("Strategy Masters", "Private • 5 members", Icons.Default.Psychology, Color(0xFF476B2D))
+        ))
+    }
 
     private fun onConnected() {
         if (isHost || connectionType == ConnectionType.ONLINE) {
@@ -243,6 +257,14 @@ class GameViewModel : ViewModel() {
             if (isHost) sendData("SYNC:${gson.toJson(engine.exportState())}")
             lastMessage = "Game Reset Sent."
         } else lastMessage = "YOUR TURN"
+    }
+
+    fun registerUser(username: String, country: String, gender: String) {
+        toggleServerConnection("10.0.2.2", true)
+        if (!userChats.any { it.title == "Main Lobby" }) {
+            userChats.add(0, ChatItem("Main Lobby", "Public • Everyone", Icons.Default.Public, Color(0xFFEBC98F)))
+        }
+        lastMessage = "Welcome, $username! Registered and connected."
     }
 
     private fun resetLocalGame() {

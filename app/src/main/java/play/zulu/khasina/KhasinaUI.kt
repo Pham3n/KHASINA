@@ -192,6 +192,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
         // ===== CHATS DROPDOWN OVERLAY =====
         if (viewModel.isChatVisible) {
             ChatsDropdownMenu(
+                viewModel = viewModel,
                 onClose = { viewModel.isChatVisible = false }
             )
         }

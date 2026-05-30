@@ -20,6 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import androidx.compose.runtime.*
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+
 data class ProfileMenuItem(
     val title: String,
     val icon: ImageVector
@@ -30,6 +33,7 @@ fun ProfileDropdownMenu(
     viewModel: GameViewModel,
     onClose: () -> Unit = {}
 ) {
+    var showAuthDialog by remember { mutableStateOf(false) }
 
     val menuItems = listOf(
         ProfileMenuItem("Profile", Icons.Default.Person),
@@ -140,7 +144,11 @@ fun ProfileDropdownMenu(
                         .fillMaxWidth()
                         .height(70.dp),
                     onClick = { 
-                        viewModel.toggleServerConnection("10.0.2.2", !viewModel.isConnectedToServer)
+                        if (viewModel.isConnectedToServer) {
+                            viewModel.toggleServerConnection("10.0.2.2", false)
+                        } else {
+                            showAuthDialog = true
+                        }
                     },
                     shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -156,7 +164,127 @@ fun ProfileDropdownMenu(
                 }
             }
         }
+
+        if (showAuthDialog) {
+            AuthDialog(
+                onLogin = { user, pass -> 
+                    viewModel.toggleServerConnection("10.0.2.2", true)
+                    showAuthDialog = false
+                },
+                onRegister = { user, pass, country, gender ->
+                    viewModel.registerUser(user, country, gender)
+                    showAuthDialog = false
+                },
+                onDismiss = { showAuthDialog = false }
+            )
+        }
     }
+}
+
+@Composable
+fun AuthDialog(
+    onLogin: (String, String) -> Unit,
+    onRegister: (String, String, String, String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var isRegistering by remember { mutableStateOf(false) }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var country by remember { mutableStateOf("") }
+    var gender by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF24130C),
+        title = {
+            Text(
+                if (isRegistering) "Register New User" else "Login",
+                color = Color(0xFFE7C58A),
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text("Username") },
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFF3B2417),
+                        unfocusedContainerColor = Color(0xFF3B2417),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+                TextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFF3B2417),
+                        unfocusedContainerColor = Color(0xFF3B2417),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+                if (isRegistering) {
+                    TextField(
+                        value = country,
+                        onValueChange = { country = it },
+                        label = { Text("Country") },
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFF3B2417),
+                            unfocusedContainerColor = Color(0xFF3B2417),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+                    TextField(
+                        value = gender,
+                        onValueChange = { gender = it },
+                        label = { Text("Gender") },
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFF3B2417),
+                            unfocusedContainerColor = Color(0xFF3B2417),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+                }
+                
+                TextButton(onClick = { isRegistering = !isRegistering }) {
+                    Text(
+                        if (isRegistering) "Already have an account? Login" else "Don't have an account? Register",
+                        color = Color(0xFFE7C58A)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (isRegistering) {
+                        onRegister(username, password, country, gender)
+                    } else {
+                        onLogin(username, password)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5E3C))
+            ) {
+                Text(if (isRegistering) "Register" else "Login", color = Color(0xFFEFD7A5))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color(0xFFE7C58A))
+            }
+        }
+    )
 }
 
 @Composable
