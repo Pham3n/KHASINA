@@ -1,7 +1,10 @@
 package play.zulu.khasina
 
 import java.io.IOException
+import java.net.InetSocketAddress
 import java.net.Socket
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class OnlineService(
     private val onConnected: () -> Unit,
@@ -10,10 +13,38 @@ class OnlineService(
     private var clientThread: ClientThread? = null
     private var connectedThread: ConnectedThread? = null
 
-    fun connect(ipAddress: String, port: Int = 9999) {
+    fun connect(ipAddress: String, port: Int) {
         stop()
         clientThread = ClientThread(ipAddress, port)
         clientThread?.start()
+    }
+
+    suspend fun queryServer(ip: String, port: Int): String? {
+        return withContext(Dispatchers.IO) {
+            val socket = Socket()
+            try {
+                socket.connect(InetSocketAddress(ip, port), 300) // Fast scan
+                val input = socket.getInputStream()
+                val output = socket.getOutputStream()
+                
+                output.write("IDENTIFY".toByteArray())
+                output.flush()
+                
+                val buffer = ByteArray(1024)
+                val bytes = input.read(buffer)
+                if (bytes > 0) {
+                    val response = String(buffer, 0, bytes).trim()
+                    socket.close()
+                    response
+                } else {
+                    socket.close()
+                    null
+                }
+            } catch (e: Exception) {
+                try { socket.close() } catch (ex: Exception) {}
+                null
+            }
+        }
     }
 
     fun stop() {

@@ -175,7 +175,7 @@ fun ProfileDropdownMenu(
         if (showAuthDialog) {
             AuthDialog(
                 onLogin = { user, pass -> 
-                    viewModel.toggleServerConnection("10.0.2.2", true)
+                    viewModel.loginUser(user)
                     showAuthDialog = false
                 },
                 onRegister = { user, pass, country, gender ->

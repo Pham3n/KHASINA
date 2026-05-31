@@ -66,10 +66,8 @@ class GameViewModel : ViewModel() {
         onReceived = { message -> handleReceivedMessage(message) }
     )
 
-    private val gameServerPrimary = "192.168.8.101"
-    private val gamePortPrimary = 8000
-    private val gameServerSecondary = "192.168.8.102"
-    private val gamePortSecondary = 8001 
+    private var gameServerAddress: Pair<String, Int>? = null
+    private var chatServerAddress: Pair<String, Int>? = null
 
     init {
         // Initialize default user chats
@@ -105,26 +103,35 @@ class GameViewModel : ViewModel() {
     fun attemptServerConnection() {
         viewModelScope.launch {
             connectionState = ConnectionState.CONNECTING
-            var success = tryConnect(gameServerPrimary, gamePortPrimary)
-            if (!success) {
-                success = tryConnect(gameServerSecondary, gamePortSecondary)
-            }
             
-            if (!success) {
+            var foundGame = false
+            var foundChat = false
+
+            // Query IP range 192.168.8.100 - 192.168.8.105
+            // Query Port range 8000 - 8010
+            for (i in 100..105) {
+                val ip = "192.168.8.$i"
+                for (port in 8000..8010) {
+                    val result = onlineService.queryServer(ip, port)
+                    if (result == "PLAYGAME") {
+                        gameServerAddress = Pair(ip, port)
+                        foundGame = true
+                    } else if (result == "PLAYCHAT") {
+                        chatServerAddress = Pair(ip, port)
+                        foundChat = true
+                    }
+                    if (foundGame && foundChat) break
+                }
+                if (foundGame && foundChat) break
+            }
+
+            if (foundGame) {
+                onlineService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
+            } else {
                 connectionState = ConnectionState.OFFLINE
                 isConnectedToServer = false
             }
         }
-    }
-
-    private suspend fun tryConnect(host: String, port: Int): Boolean {
-        onlineService.connect(host, port)
-        var retry = 6
-        while (retry > 0 && !isConnectedToServer) {
-            delay(500)
-            retry--
-        }
-        return isConnectedToServer
     }
 
     fun startHosting(type: ConnectionType) {
@@ -170,6 +177,11 @@ class GameViewModel : ViewModel() {
             onlineService.stop()
             isConnectedToServer = false
             connectionState = ConnectionState.OFFLINE
+            gameServerAddress = null
+            chatServerAddress = null
+            authState = AuthState.GUEST
+            currentUser = null
+            userChats.clear() // Optional: clear user chats on logout
             if (connectionType == ConnectionType.ONLINE) {
                 disconnect()
             }
@@ -300,6 +312,16 @@ class GameViewModel : ViewModel() {
         authState = AuthState.AUTHENTICATED
         currentUser = username
         lastMessage = "Welcome, $username! Registered and connected."
+    }
+
+    fun loginUser(username: String) {
+        toggleServerConnection("10.0.2.2", true)
+        if (!userChats.any { it.title == "Main Lobby" }) {
+            userChats.add(0, ChatItem("Main Lobby", "Public • Everyone", Icons.Default.Public, Color(0xFFEBC98F)))
+        }
+        authState = AuthState.AUTHENTICATED
+        currentUser = username
+        lastMessage = "Welcome back, $username!"
     }
 
     private fun resetLocalGame() {

@@ -318,6 +318,7 @@ fun SidebarContent(
         Spacer(modifier = Modifier.weight(1f))
 
         if (viewModel.isMultiplayer) {
+            Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = { viewModel.disconnect(); onActionStarted() },
                 modifier = Modifier.fillMaxWidth(),
@@ -326,6 +327,35 @@ fun SidebarContent(
             ) {
                 Text("DISCONNECT", fontWeight = FontWeight.Bold)
             }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+        HorizontalDivider(color = Color(0xFF5A3822), thickness = 1.dp)
+        
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                "CONNECT TO SERVER", 
+                color = if (viewModel.authState == GameViewModel.AuthState.GUEST) Color.Gray else Color.White, 
+                fontSize = 14.sp, 
+                fontWeight = FontWeight.Bold
+            )
+            Switch(
+                enabled = viewModel.authState != GameViewModel.AuthState.GUEST,
+                checked = viewModel.isConnectedToServer,
+                onCheckedChange = { 
+                    viewModel.toggleServerConnection("10.0.2.2", it) 
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFFD6B37A),
+                    checkedTrackColor = Color(0xFF5A3822),
+                    disabledCheckedThumbColor = Color.Gray,
+                    disabledUncheckedThumbColor = Color.DarkGray
+                )
+            )
         }
     }
 
