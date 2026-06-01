@@ -48,6 +48,12 @@ class GameViewModel : ViewModel() {
     var connectionState by mutableStateOf(ConnectionState.OFFLINE)
     var currentUser by mutableStateOf<String?>(null)
 
+    // Form Cache
+    var cachedUsername by mutableStateOf("")
+    var cachedPassword by mutableStateOf("")
+    var cachedCountry by mutableStateOf("")
+    var cachedGender by mutableStateOf("")
+
     private val gson = Gson()
     private val bluetoothService = BluetoothService(
         onConnected = { onConnected() },
@@ -111,7 +117,7 @@ class GameViewModel : ViewModel() {
         }
     }
 
-    fun attemptServerConnection() {
+    fun attemptServerConnection(onAuthRequired: Boolean = false) {
         viewModelScope.launch {
             connectionState = ConnectionState.CONNECTING
             
@@ -124,7 +130,6 @@ class GameViewModel : ViewModel() {
             for (i in 100..105) {
                 val ip = "192.168.8.$i"
                 for (port in 8000..8010) {
-                    // Use authService as a scanner (it's agnostic until connected)
                     val result = gameService.queryServer(ip, port)
                     when (result) {
                         "PLAYAUTH" -> {
@@ -145,16 +150,43 @@ class GameViewModel : ViewModel() {
                 if (foundAuth && foundGame && foundChat) break
             }
 
-            if (foundAuth && foundGame && foundChat) {
-                authService.connect(authServerAddress!!.first, authServerAddress!!.second)
-                gameService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
-                chatService.connect(chatServerAddress!!.first, chatServerAddress!!.second)
-            } else if (foundGame) {
-                // Fallback: at least connect to game if found
-                gameService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
+            if (foundAuth) {
+                // We found Auth server, now attempt login/register if requested
+                if (onAuthRequired) {
+                    // Logic to send cached credentials to authServerAddress
+                    // This part is simulated for now as per project context
+                    val authSuccess = true // Simulate server confirmation
+                    if (authSuccess) {
+                        authState = AuthState.AUTHENTICATED
+                        connectionState = ConnectionState.ONLINE
+                        authService.connect(authServerAddress!!.first, authServerAddress!!.second)
+                        if (foundGame) gameService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
+                        if (foundChat) chatService.connect(chatServerAddress!!.first, chatServerAddress!!.second)
+                    } else {
+                        // Auth server rejected
+                        authState = AuthState.GUEST
+                        connectionState = ConnectionState.OFFLINE
+                        lastMessage = "Authentication failed."
+                    }
+                } else {
+                    // Just a reconnect attempt for an already authenticated user
+                    connectionState = ConnectionState.ONLINE
+                    authService.connect(authServerAddress!!.first, authServerAddress!!.second)
+                    if (foundGame) gameService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
+                    if (foundChat) chatService.connect(chatServerAddress!!.first, chatServerAddress!!.second)
+                }
             } else {
-                connectionState = ConnectionState.OFFLINE
-                isConnectedToServer = false
+                // Discovery failed to find Auth server
+                if (onAuthRequired) {
+                    // Can't confirm user, stay Guest
+                    authState = AuthState.GUEST
+                    connectionState = ConnectionState.OFFLINE
+                    lastMessage = "Server not found."
+                } else if (authState == AuthState.AUTHENTICATED) {
+                    // Already logged in user but server unreachable
+                    connectionState = ConnectionState.OFFLINE
+                    lastMessage = "Server unreachable. Offline mode."
+                }
             }
         }
     }
@@ -332,24 +364,28 @@ class GameViewModel : ViewModel() {
         } else lastMessage = "YOUR TURN"
     }
 
-    fun registerUser(username: String, country: String, gender: String) {
-        toggleServerConnection("10.0.2.2", true)
+    fun registerUser(username: String, pass: String, country: String, gender: String) {
+        currentUser = username
+        cachedUsername = username
+        cachedPassword = pass
+        cachedCountry = country
+        cachedGender = gender
+        attemptServerConnection(onAuthRequired = true)
+        
         if (!userChats.any { it.title == "Main Lobby" }) {
             userChats.add(0, ChatItem("Main Lobby", "Public • Everyone", Icons.Default.Public, Color(0xFFEBC98F)))
         }
-        authState = AuthState.AUTHENTICATED
-        currentUser = username
-        lastMessage = "Welcome, $username! Registered and connected."
     }
 
-    fun loginUser(username: String) {
-        toggleServerConnection("10.0.2.2", true)
+    fun loginUser(username: String, pass: String) {
+        currentUser = username
+        cachedUsername = username
+        cachedPassword = pass
+        attemptServerConnection(onAuthRequired = true)
+        
         if (!userChats.any { it.title == "Main Lobby" }) {
             userChats.add(0, ChatItem("Main Lobby", "Public • Everyone", Icons.Default.Public, Color(0xFFEBC98F)))
         }
-        authState = AuthState.AUTHENTICATED
-        currentUser = username
-        lastMessage = "Welcome back, $username!"
     }
 
     private fun resetLocalGame() {

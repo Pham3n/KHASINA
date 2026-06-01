@@ -174,12 +174,13 @@ fun ProfileDropdownMenu(
 
         if (showAuthDialog) {
             AuthDialog(
+                viewModel = viewModel,
                 onLogin = { user, pass -> 
-                    viewModel.loginUser(user)
+                    viewModel.loginUser(user, pass)
                     showAuthDialog = false
                 },
                 onRegister = { user, pass, country, gender ->
-                    viewModel.registerUser(user, country, gender)
+                    viewModel.registerUser(user, pass, country, gender)
                     showAuthDialog = false
                 },
                 onDismiss = { showAuthDialog = false }
@@ -190,15 +191,16 @@ fun ProfileDropdownMenu(
 
 @Composable
 fun AuthDialog(
+    viewModel: GameViewModel,
     onLogin: (String, String) -> Unit,
     onRegister: (String, String, String, String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var isRegistering by remember { mutableStateOf(false) }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var country by remember { mutableStateOf("") }
-    var gender by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf(viewModel.cachedUsername) }
+    var password by remember { mutableStateOf(viewModel.cachedPassword) }
+    var country by remember { mutableStateOf(viewModel.cachedCountry) }
+    var gender by remember { mutableStateOf(viewModel.cachedGender) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -275,6 +277,11 @@ fun AuthDialog(
         confirmButton = {
             Button(
                 onClick = {
+                    viewModel.cachedUsername = username
+                    viewModel.cachedPassword = password
+                    viewModel.cachedCountry = country
+                    viewModel.cachedGender = gender
+
                     if (isRegistering) {
                         onRegister(username, password, country, gender)
                     } else {
