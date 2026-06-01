@@ -57,7 +57,13 @@ class GameViewModel : ViewModel() {
         onConnected = { onConnected() },
         onReceived = { message -> handleReceivedMessage(message) }
     )
-    private val onlineService = OnlineService(
+    
+    // Services for the three servers
+    private val authService = OnlineService(
+        onConnected = { /* Auth usually handles session tokens */ },
+        onReceived = { message -> /* Handle auth-specific logic (profiles, friends) */ }
+    )
+    private val gameService = OnlineService(
         onConnected = { 
             isConnectedToServer = true
             connectionState = ConnectionState.ONLINE
@@ -65,7 +71,12 @@ class GameViewModel : ViewModel() {
         },
         onReceived = { message -> handleReceivedMessage(message) }
     )
+    private val chatService = OnlineService(
+        onConnected = { /* Connected to Chat */ },
+        onReceived = { message -> /* Handle chat messages/presence */ }
+    )
 
+    private var authServerAddress: Pair<String, Int>? = null
     private var gameServerAddress: Pair<String, Int>? = null
     private var chatServerAddress: Pair<String, Int>? = null
 
@@ -95,7 +106,7 @@ class GameViewModel : ViewModel() {
         when (connectionType) {
             ConnectionType.BLUETOOTH -> bluetoothService.send(data)
             ConnectionType.LAN -> lanService.send(data)
-            ConnectionType.ONLINE -> onlineService.send(data)
+            ConnectionType.ONLINE -> gameService.send(data)
             null -> {}
         }
     }
@@ -104,6 +115,7 @@ class GameViewModel : ViewModel() {
         viewModelScope.launch {
             connectionState = ConnectionState.CONNECTING
             
+            var foundAuth = false
             var foundGame = false
             var foundChat = false
 
@@ -112,21 +124,34 @@ class GameViewModel : ViewModel() {
             for (i in 100..105) {
                 val ip = "192.168.8.$i"
                 for (port in 8000..8010) {
-                    val result = onlineService.queryServer(ip, port)
-                    if (result == "PLAYGAME") {
-                        gameServerAddress = Pair(ip, port)
-                        foundGame = true
-                    } else if (result == "PLAYCHAT") {
-                        chatServerAddress = Pair(ip, port)
-                        foundChat = true
+                    // Use authService as a scanner (it's agnostic until connected)
+                    val result = gameService.queryServer(ip, port)
+                    when (result) {
+                        "PLAYAUTH" -> {
+                            authServerAddress = Pair(ip, port)
+                            foundAuth = true
+                        }
+                        "PLAYGAME" -> {
+                            gameServerAddress = Pair(ip, port)
+                            foundGame = true
+                        }
+                        "PLAYCHAT" -> {
+                            chatServerAddress = Pair(ip, port)
+                            foundChat = true
+                        }
                     }
-                    if (foundGame && foundChat) break
+                    if (foundAuth && foundGame && foundChat) break
                 }
-                if (foundGame && foundChat) break
+                if (foundAuth && foundGame && foundChat) break
             }
 
-            if (foundGame) {
-                onlineService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
+            if (foundAuth && foundGame && foundChat) {
+                authService.connect(authServerAddress!!.first, authServerAddress!!.second)
+                gameService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
+                chatService.connect(chatServerAddress!!.first, chatServerAddress!!.second)
+            } else if (foundGame) {
+                // Fallback: at least connect to game if found
+                gameService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
             } else {
                 connectionState = ConnectionState.OFFLINE
                 isConnectedToServer = false
@@ -174,14 +199,17 @@ class GameViewModel : ViewModel() {
         if (connect) {
             attemptServerConnection()
         } else {
-            onlineService.stop()
+            authService.stop()
+            gameService.stop()
+            chatService.stop()
             isConnectedToServer = false
             connectionState = ConnectionState.OFFLINE
+            authServerAddress = null
             gameServerAddress = null
             chatServerAddress = null
             authState = AuthState.GUEST
             currentUser = null
-            userChats.clear() // Optional: clear user chats on logout
+            userChats.clear()
             if (connectionType == ConnectionType.ONLINE) {
                 disconnect()
             }
@@ -189,7 +217,7 @@ class GameViewModel : ViewModel() {
     }
 
     fun disconnect() {
-        bluetoothService.stop(); lanService.stop(); onlineService.stop()
+        bluetoothService.stop(); lanService.stop(); gameService.stop(); chatService.stop(); authService.stop()
         isMultiplayer = false; isHost = false; connectionType = null
         resetLocalGame(); engine.useAI = true
         lastMessage = "Disconnected. AI mode."
