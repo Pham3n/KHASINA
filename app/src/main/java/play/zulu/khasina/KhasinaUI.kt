@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -59,7 +60,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-            ChatBox()
+            ChatBox(viewModel)
             Spacer(modifier = Modifier.height(12.dp))
 
             // ===== MAIN GAME AREA =====
@@ -339,15 +340,42 @@ fun PlayerHandPanel(
 }
 
 @Composable
-fun ChatBox(modifier: Modifier = Modifier) {
+fun ChatBox(viewModel: GameViewModel, modifier: Modifier = Modifier) {
+    val selectedChat = viewModel.selectedChat
+    val messages = viewModel.chatMessages
+    
     Card(
-        modifier = modifier.fillMaxWidth().height(80.dp),
+        modifier = modifier.fillMaxWidth().height(100.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B12)),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Text(text = "[14:20] AI: I'll capture that 5!", color = Color.White, fontSize = 12.sp)
-            Text(text = "[14:21] You: Not if I build it into an 8.", color = Color(0xFFEBC98F), fontSize = 12.sp)
+            Text(
+                text = selectedChat?.title ?: "GAME CHAT", 
+                color = Color(0xFFEBC98F), 
+                fontSize = 12.sp, 
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            LazyColumn(modifier = Modifier.weight(1f), reverseLayout = true) {
+                items(messages.asReversed()) { msg ->
+                    Text(
+                        text = "[${msg.timestamp}] ${msg.sender}: ${msg.text}", 
+                        color = Color.White, 
+                        fontSize = 12.sp
+                    )
+                }
+                if (messages.isEmpty()) {
+                    item {
+                        Text(
+                            text = if (selectedChat == null) "Select a chat to start messaging" else "No messages in ${selectedChat.title}",
+                            color = Color.Gray,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
         }
     }
 }

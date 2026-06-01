@@ -27,6 +27,8 @@ class GameViewModel : ViewModel() {
     var isConnectedToServer by mutableStateOf(false)
     val onlinePlayers = mutableStateListOf<String>() // Mock online players list
     val userChats = mutableStateListOf<ChatItem>()
+    var selectedChat by mutableStateOf<ChatItem?>(null)
+    val chatMessages = mutableStateListOf<ChatMessage>()
 
     // Selection State
     var selectedCardHand by mutableStateOf<Card?>(null)
@@ -79,7 +81,14 @@ class GameViewModel : ViewModel() {
     )
     private val chatService = OnlineService(
         onConnected = { /* Connected to Chat */ },
-        onReceived = { message -> /* Handle chat messages/presence */ }
+        onReceived = { message -> 
+            if (message.startsWith("CHAT_MSG:")) {
+                try {
+                    val msg = gson.fromJson(message.substring(9), ChatMessage::class.java)
+                    chatMessages.add(msg)
+                } catch (e: Exception) {}
+            }
+        }
     )
 
     private var authServerAddress: Pair<String, Int>? = null

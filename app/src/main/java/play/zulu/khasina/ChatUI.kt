@@ -19,6 +19,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+data class ChatMessage(
+    val sender: String,
+    val text: String,
+    val timestamp: String
+)
+
 data class ChatItem(
     val title: String,
     val subtitle: String,
@@ -110,7 +116,11 @@ fun ChatsDropdownMenu(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     items(defaultChats) { chat ->
-                        ChatRow(chat = chat, onClick = { onChatClick(chat) })
+                        ChatRow(chat = chat, onClick = { 
+                            viewModel.selectedChat = chat
+                            viewModel.chatMessages.clear()
+                            onClose()
+                        })
                     }
                     item {
                         Spacer(modifier = Modifier.height(16.dp))
@@ -123,7 +133,11 @@ fun ChatsDropdownMenu(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     items(userChats) { chat ->
-                        ChatRow(chat = chat, onClick = { onChatClick(chat) })
+                        ChatRow(chat = chat, onClick = { 
+                            viewModel.selectedChat = chat
+                            viewModel.chatMessages.clear()
+                            onClose()
+                        })
                     }
                 }
 
