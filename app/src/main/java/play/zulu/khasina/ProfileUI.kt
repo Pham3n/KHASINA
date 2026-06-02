@@ -43,9 +43,7 @@ fun ProfileDropdownMenu(
         ProfileMenuItem("Leaderboards", Icons.Default.Leaderboard),
         ProfileMenuItem("Friends", Icons.Default.Groups),
         ProfileMenuItem("Clubs", Icons.Default.AccountBalance),
-        ProfileMenuItem("Themes", Icons.Default.Palette),
-        ProfileMenuItem("Settings", Icons.Default.Settings),
-        ProfileMenuItem("Help", Icons.AutoMirrored.Filled.Help)
+        ProfileMenuItem("Themes", Icons.Default.Palette)
     )
 
     Box(

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -317,6 +318,20 @@ fun SidebarContent(
 
         Spacer(modifier = Modifier.weight(1f))
 
+        // Settings and Help
+        ModeItem(
+            title = "SETTINGS",
+            icon = Icons.Default.Settings,
+            isSelected = false,
+            onClick = { /* Handle settings */ }
+        )
+        ModeItem(
+            title = "HELP",
+            icon = Icons.AutoMirrored.Filled.Help,
+            isSelected = false,
+            onClick = { /* Handle help */ }
+        )
+
         if (viewModel.isMultiplayer) {
             Spacer(modifier = Modifier.height(16.dp))
             Button(
@@ -329,7 +344,7 @@ fun SidebarContent(
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = Color(0xFF5A3822), thickness = 1.dp)
         
         Row(
