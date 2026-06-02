@@ -52,9 +52,10 @@ class GameViewModel : ViewModel() {
 
     // Form Cache
     var cachedUsername by mutableStateOf("")
+    var cachedEmail by mutableStateOf("")
     var cachedPassword by mutableStateOf("")
     var cachedCountry by mutableStateOf("")
-    var cachedGender by mutableStateOf("")
+    var cachedBio by mutableStateOf("")
 
     private val gson = Gson()
     private val bluetoothService = BluetoothService(
@@ -373,12 +374,12 @@ class GameViewModel : ViewModel() {
         } else lastMessage = "YOUR TURN"
     }
 
-    fun registerUser(username: String, pass: String, country: String, gender: String) {
+    fun registerUser(username: String, email: String, pass: String, country: String) {
         currentUser = username
         cachedUsername = username
+        cachedEmail = email
         cachedPassword = pass
         cachedCountry = country
-        cachedGender = gender
         attemptServerConnection(onAuthRequired = true)
         
         if (!userChats.any { it.title == "Main Lobby" }) {
