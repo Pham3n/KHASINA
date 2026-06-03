@@ -299,12 +299,13 @@ fun SidebarContent(
                 } else {
                     viewModel.onlinePlayers.forEach { player ->
                         SubModeItem(player) {
-                            viewModel.connectToHost("10.0.2.2", GameViewModel.ConnectionType.ONLINE)
+                            // Tapping a player initiates connection
+                            viewModel.connectToHost("192.168.8.102", GameViewModel.ConnectionType.ONLINE)
                             onActionStarted()
                             
                             scope.launch {
                                 delay(5000)
-                                if (!viewModel.isConnectedToServer) {
+                                if (viewModel.connectionType != GameViewModel.ConnectionType.ONLINE) {
                                     showError = true
                                     delay(3000)
                                     showError = false
@@ -318,7 +319,6 @@ fun SidebarContent(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Settings and Help
         ModeItem(
             title = "SETTINGS",
             icon = Icons.Default.Settings,
@@ -362,7 +362,7 @@ fun SidebarContent(
                 enabled = viewModel.authState != GameViewModel.AuthState.GUEST,
                 checked = viewModel.isConnectedToServer,
                 onCheckedChange = { 
-                    viewModel.toggleServerConnection("10.0.2.2", it) 
+                    viewModel.toggleServerConnection("10.54.16.238", it)
                 },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFFD6B37A),

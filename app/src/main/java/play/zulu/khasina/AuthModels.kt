@@ -31,7 +31,9 @@ data class UserRead(
     val email: String,
     val avatar: String?,
     val rating: Int,
-    val roles: List<String>
+    val roles: List<String>,
+    @SerializedName("created_at")
+    val createdAt: String
 )
 
 data class ProfileRead(

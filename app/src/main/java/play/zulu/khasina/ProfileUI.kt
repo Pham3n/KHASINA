@@ -112,7 +112,7 @@ fun ProfileDropdownMenu(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = if (viewModel.authState == GameViewModel.AuthState.GUEST) "Guest" else (viewModel.currentUser ?: "User"),
+                            text = if (viewModel.authState == GameViewModel.AuthState.GUEST) "Guest" else (viewModel.currentUserProfile?.displayName ?: viewModel.currentUser ?: "User"),
                             color = Color.White,
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Bold
@@ -124,8 +124,11 @@ fun ProfileDropdownMenu(
                             else -> "Offline"
                         }
 
+                        val rating = viewModel.currentUserData?.rating ?: 1000
+                        val country = viewModel.currentUserProfile?.country ?: "Unknown"
+
                         Text(
-                            text = if (viewModel.authState == GameViewModel.AuthState.GUEST) "No profile" else "Level 12 • $statusLabel",
+                            text = if (viewModel.authState == GameViewModel.AuthState.GUEST) "No profile" else "Rating: $rating • $country • $statusLabel",
                             color = Color(0xFFD8B073),
                             fontSize = 16.sp
                         )
@@ -150,7 +153,7 @@ fun ProfileDropdownMenu(
                         .height(70.dp),
                     onClick = { 
                         if (viewModel.isConnectedToServer) {
-                            viewModel.toggleServerConnection("10.0.2.2", false)
+                            viewModel.toggleServerConnection("10.54.16.238", false)
                         } else {
                             showAuthDialog = true
                         }
@@ -263,6 +266,15 @@ fun AuthDialog(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White
                         )
+                    )
+                }
+
+                if (viewModel.authErrorMessage != null) {
+                    Text(
+                        text = viewModel.authErrorMessage!!,
+                        color = Color.Red,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
                 

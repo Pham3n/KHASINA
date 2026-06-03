@@ -18,4 +18,10 @@ interface AuthApiService {
 
     @GET("profiles/me")
     suspend fun getProfile(@Header("Authorization") token: String): Response<ProfileRead>
+
+    @retrofit2.http.PATCH("profiles/me")
+    suspend fun updateProfile(
+        @Header("Authorization") token: String,
+        @Body payload: Map<String, String>
+    ): Response<ProfileRead>
 }

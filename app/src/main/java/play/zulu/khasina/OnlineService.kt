@@ -1,8 +1,12 @@
 package play.zulu.khasina
 
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -12,6 +16,10 @@ class OnlineService(
 ) {
     private var clientThread: ClientThread? = null
     private var connectedThread: ConnectedThread? = null
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(5, TimeUnit.SECONDS) // Increased from 300ms
+        .readTimeout(5, TimeUnit.SECONDS)
+        .build()
 
     fun connect(ipAddress: String, port: Int) {
         stop()
@@ -21,29 +29,22 @@ class OnlineService(
 
     suspend fun queryServer(ip: String, port: Int): String? {
         return withContext(Dispatchers.IO) {
-            val socket = Socket()
+            val url = "http://$ip:$port/identity"
+            val request = Request.Builder().url(url).build()
             try {
-                socket.connect(InetSocketAddress(ip, port), 300) // Fast scan
-                val input = socket.getInputStream()
-                val output = socket.getOutputStream()
-                
-                output.write("IDENTIFY".toByteArray())
-                output.flush()
-                
-                val buffer = ByteArray(1024)
-                val bytes = input.read(buffer)
-                if (bytes > 0) {
-                    val response = String(buffer, 0, bytes).trim()
-                    socket.close()
-                    response
-                } else {
-                    socket.close()
-                    null
+                httpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body?.string()
+                        if (body != null) {
+                            val json = JSONObject(body)
+                            return@withContext json.optString("service", null)
+                        }
+                    }
                 }
             } catch (e: Exception) {
-                try { socket.close() } catch (ex: Exception) {}
-                null
+                // Not an HTTP server or unreachable
             }
+            null
         }
     }
 
@@ -63,7 +64,8 @@ class OnlineService(
 
         override fun run() {
             try {
-                socket = Socket(ipAddress, port)
+                socket = Socket()
+                socket?.connect(InetSocketAddress(ipAddress, port), 2000)
                 socket?.let { manageConnectedSocket(it) }
             } catch (e: IOException) {
                 e.printStackTrace()
