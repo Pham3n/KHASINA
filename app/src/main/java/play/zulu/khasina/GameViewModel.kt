@@ -163,11 +163,35 @@ class GameViewModel : ViewModel() {
     private var chatServerAddress: Pair<String, Int>? = null
 
     init {
-        userChats.addAll(listOf(
-            ChatItem("League Chat", "Default", Icons.Default.EmojiEvents, Color(0xFF8B3A1A)),
-            ChatItem("Global Chat", "Public", Icons.Default.Shield, Color(0xFF9C6B28)),
-            ChatItem("Announcements", "Updates", Icons.Default.Campaign, Color(0xFF5B3C6F))
-        ))
+        // userChats will be populated from server
+    }
+
+    fun refreshChatRooms() {
+        viewModelScope.launch {
+            val api = chatApi ?: return@launch
+            try {
+                val response = api.listRooms()
+                if (response.isSuccessful) {
+                    val rooms = response.body() ?: emptyList()
+                    userChats.clear()
+                    rooms.forEach { room ->
+                        val icon = when (room.room_type.lowercase()) {
+                            "global" -> Icons.Default.Public
+                            "league" -> Icons.Default.EmojiEvents
+                            else -> Icons.Default.Chat
+                        }
+                        userChats.add(
+                            ChatItem(
+                                title = room.name,
+                                subtitle = "${room.room_type} Room",
+                                icon = icon,
+                                iconColor = Color(0xFFEBC98F)
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {}
+        }
     }
 
     private fun onConnected() {
@@ -436,6 +460,7 @@ class GameViewModel : ViewModel() {
                             if (!userChats.any { it.title == "Main Lobby" }) {
                                 userChats.add(0, ChatItem("Main Lobby", "Public • Everyone", Icons.Default.Public, Color(0xFFEBC98F)))
                             }
+                            refreshChatRooms()
                             startSessionPolling()
                         } else {
                             val errorBody = response.errorBody()?.string()
@@ -496,6 +521,7 @@ class GameViewModel : ViewModel() {
                             if (!userChats.any { it.title == "Main Lobby" }) {
                                 userChats.add(0, ChatItem("Main Lobby", "Public • Everyone", Icons.Default.Public, Color(0xFFEBC98F)))
                             }
+                            refreshChatRooms()
                             startSessionPolling()
                         } else {
                             val errorBody = response.errorBody()?.string()

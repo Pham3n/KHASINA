@@ -67,7 +67,7 @@ fun ChatsDropdownMenu(
                 .fillMaxWidth(0.85f)
                 .fillMaxHeight(0.65f)
                 .align(Alignment.TopCenter)
-                .padding(top = 80.dp)
+                .padding(top = 20.dp)
                 .clickable(enabled = false) { },
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF24130C)),

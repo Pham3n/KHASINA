@@ -41,7 +41,6 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
                 .padding(12.dp)
         ) {
 
@@ -56,7 +55,10 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                 }
                 Text(text = "KHASINA", color = Color(0xFFE0BC7A), fontWeight = FontWeight.Bold, fontSize = 28.sp)
                 Row {
-                    IconButton(onClick = { viewModel.isChatVisible = true }) { 
+                    IconButton(onClick = { 
+                        viewModel.isChatVisible = true 
+                        viewModel.refreshChatRooms()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color(0xFFE0BC7A)) 
                     }
                     IconButton(onClick = { viewModel.isProfileVisible = true }) { 

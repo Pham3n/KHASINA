@@ -67,28 +67,28 @@ fun SettingsScreen(
         SettingsItem("ABOUT", Icons.Default.Info, "About")
     )
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("SETTINGS", color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color(0xFFEBC98F))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
-        },
-        containerColor = Color.Transparent
-    ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            Image(
-                painter = painterResource(R.drawable.bgbl),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            
+    Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(R.drawable.bgbl),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("SETTINGS", color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color(0xFFEBC98F))
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                )
+            },
+            containerColor = Color.Transparent
+        ) { innerPadding ->
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()

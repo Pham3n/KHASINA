@@ -57,7 +57,7 @@ fun ProfileDropdownMenu(
                 .fillMaxWidth(0.92f)
                 .fillMaxHeight(0.86f)
                 .align(Alignment.TopCenter)
-                .padding(top = 70.dp),
+                .padding(top = 20.dp),
             shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(
                 containerColor = Color(0xFF24130C)
