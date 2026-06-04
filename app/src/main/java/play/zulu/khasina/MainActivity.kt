@@ -167,6 +167,7 @@ fun SidebarContent(
     var expandedMode by remember { mutableStateOf<GameViewModel.ConnectionType?>(null) }
     var showError by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(
         modifier = Modifier
@@ -329,7 +330,10 @@ fun SidebarContent(
             title = "SETTINGS",
             icon = Icons.Default.Settings,
             isSelected = false,
-            onClick = { /* Handle settings */ }
+            onClick = {
+                onActionStarted()
+                context.startActivity(android.content.Intent(context, SettingsActivity::class.java))
+            }
         )
         ModeItem(
             title = "HELP",

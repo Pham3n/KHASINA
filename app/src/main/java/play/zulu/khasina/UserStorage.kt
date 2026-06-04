@@ -32,4 +32,17 @@ class UserStorage(context: Context) {
     fun clear() {
         prefs.edit().clear().apply()
     }
+
+    // Settings
+    fun isDiscoveryEnabled(): Boolean = prefs.getBoolean("discovery_enabled", true)
+    fun setDiscoveryEnabled(enabled: Boolean) = prefs.edit().putBoolean("discovery_enabled", enabled).apply()
+
+    fun isPollingEnabled(): Boolean = prefs.getBoolean("polling_enabled", true)
+    fun setPollingEnabled(enabled: Boolean) = prefs.edit().putBoolean("polling_enabled", enabled).apply()
+
+    fun getManualIp(): String = prefs.getString("manual_ip", "192.168.8.102") ?: "192.168.8.102"
+    fun setManualIp(ip: String) = prefs.edit().putString("manual_ip", ip).apply()
+
+    fun getServerPort(): Int = prefs.getInt("server_port", 8000)
+    fun setServerPort(port: Int) = prefs.edit().putInt("server_port", port).apply()
 }

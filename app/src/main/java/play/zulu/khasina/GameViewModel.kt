@@ -197,20 +197,30 @@ class GameViewModel : ViewModel() {
         var foundAuth = false
         var foundGame = false
         var foundChat = false
-
-        // Scan range 192.168.8.100 - 105
-        for (i in 100..105) {
-            val ip = "192.168.8.$i"
-            for (port in 8000..8010) {
-                val result = gameService.queryServer(ip, port)
-                when (result) {
-                    "PLAYAUTH" -> { authServerAddress = Pair(ip, port); foundAuth = true }
-                    "PLAYGAME" -> { gameServerAddress = Pair(ip, port); foundGame = true }
-                    "PLAYCHAT" -> { chatServerAddress = Pair(ip, port); foundChat = true }
+        
+        val storage = userStorage
+        if (storage != null && !storage.isDiscoveryEnabled()) {
+            val ip = storage.getManualIp()
+            val basePort = storage.getServerPort()
+            authServerAddress = Pair(ip, basePort)
+            chatServerAddress = Pair(ip, basePort + 1)
+            gameServerAddress = Pair(ip, basePort + 2)
+            foundAuth = true; foundGame = true; foundChat = true
+        } else {
+            // Scan range 192.168.8.100 - 105
+            for (i in 100..105) {
+                val ip = "192.168.8.$i"
+                for (port in 8000..8010) {
+                    val result = gameService.queryServer(ip, port)
+                    when (result) {
+                        "PLAYAUTH" -> { authServerAddress = Pair(ip, port); foundAuth = true }
+                        "PLAYGAME" -> { gameServerAddress = Pair(ip, port); foundGame = true }
+                        "PLAYCHAT" -> { chatServerAddress = Pair(ip, port); foundChat = true }
+                    }
+                    if (foundAuth && foundGame && foundChat) break
                 }
                 if (foundAuth && foundGame && foundChat) break
             }
-            if (foundAuth && foundGame && foundChat) break
         }
 
         if (foundAuth) {
@@ -219,12 +229,6 @@ class GameViewModel : ViewModel() {
             if (gameServerAddress != null) createGameApi("http://${gameServerAddress!!.first}:${gameServerAddress!!.second}/")
             if (chatServerAddress != null) createChatApi("http://${chatServerAddress!!.first}:${chatServerAddress!!.second}/")
         } else {
-            // Hardcoded fallback if discovery fails or to keep it preserved
-            // val testIp = "10.54.16.238"
-            // authServerAddress = Pair(testIp, 8000)
-            // chatServerAddress = Pair(testIp, 8001)
-            // gameServerAddress = Pair(testIp, 8002)
-            // foundAuth = true
             authErrorMessage = "Server not found on network."
         }
         return foundAuth
@@ -270,10 +274,20 @@ class GameViewModel : ViewModel() {
             authService.stop(); gameService.stop(); chatService.stop()
             isConnectedToServer = false; connectionState = ConnectionState.OFFLINE
             authServerAddress = null; gameServerAddress = null; chatServerAddress = null
-            authState = AuthState.GUEST; currentUser = null; userChats.clear()
-            clearUserLocally()
             if (connectionType == ConnectionType.ONLINE) disconnect()
         }
+    }
+
+    fun logout() {
+        toggleServerConnection("", false)
+        authState = AuthState.GUEST
+        currentUser = null
+        currentUserData = null
+        currentUserProfile = null
+        accessToken = null
+        userChats.clear()
+        clearUserLocally()
+        lastMessage = "Logged out. Guest mode."
     }
 
     fun disconnect() {
@@ -533,6 +547,9 @@ class GameViewModel : ViewModel() {
 
     fun startSessionPolling() {
         sessionPollingJob?.cancel()
+        val storage = userStorage
+        if (storage != null && !storage.isPollingEnabled()) return
+
         sessionPollingJob = viewModelScope.launch {
             val api = gameApi ?: return@launch
             while (true) {

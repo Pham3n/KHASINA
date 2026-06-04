@@ -152,19 +152,19 @@ fun ProfileDropdownMenu(
                         .fillMaxWidth()
                         .height(70.dp),
                     onClick = { 
-                        if (viewModel.isConnectedToServer) {
-                            viewModel.toggleServerConnection("", false)
+                        if (viewModel.authState == GameViewModel.AuthState.AUTHENTICATED) {
+                            viewModel.logout()
                         } else {
                             showAuthDialog = true
                         }
                     },
                     shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (viewModel.isConnectedToServer) Color(0xFF7A2F24) else Color(0xFF476B2D)
+                        containerColor = if (viewModel.authState == GameViewModel.AuthState.AUTHENTICATED) Color(0xFF7A2F24) else Color(0xFF476B2D)
                     )
                 ) {
                     Text(
-                        text = if (viewModel.isConnectedToServer) "LOG OUT" else "LOG IN",
+                        text = if (viewModel.authState == GameViewModel.AuthState.AUTHENTICATED) "LOG OUT" else "LOG IN",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
