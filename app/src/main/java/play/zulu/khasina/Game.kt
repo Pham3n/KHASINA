@@ -247,8 +247,8 @@ class GameEngine {
         return emptyList()
     }
 
-    // Internal simple play for AI
-    private fun playCard(card: Card, isPlayer: Boolean): Boolean {
+    // Internal simple play for AI and online sync
+    fun playCard(card: Card, isPlayer: Boolean): Boolean {
         val hand = if (isPlayer) playerHand else aiHand
         val stack = if (isPlayer) playerStack else aiStack
         if (!hand.contains(card)) return false

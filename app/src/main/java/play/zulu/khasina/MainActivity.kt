@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        viewModel.initStorage(this)
         enableEdgeToEdge()
         setContent {
             KHASINATheme {
@@ -288,6 +289,9 @@ fun SidebarContent(
             isSelected = viewModel.isMultiplayer && viewModel.connectionType == GameViewModel.ConnectionType.ONLINE,
             onClick = {
                 expandedMode = if (expandedMode == GameViewModel.ConnectionType.ONLINE) null else GameViewModel.ConnectionType.ONLINE
+                if (expandedMode == GameViewModel.ConnectionType.ONLINE) {
+                    viewModel.refreshOnlinePlayers()
+                }
             }
         )
         AnimatedVisibility(visible = expandedMode == GameViewModel.ConnectionType.ONLINE) {
@@ -297,10 +301,12 @@ fun SidebarContent(
                 } else if (viewModel.onlinePlayers.isEmpty()) {
                     Text("No players online", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp, modifier = Modifier.padding(8.dp))
                 } else {
-                    viewModel.onlinePlayers.forEach { player ->
-                        SubModeItem(player) {
-                            // Tapping a player initiates connection
-                            viewModel.connectToHost("192.168.8.102", GameViewModel.ConnectionType.ONLINE)
+                    viewModel.onlinePlayers.forEach { entry ->
+                        val parts = entry.split("|")
+                        val name = parts.getOrNull(0) ?: "Unknown"
+                        val id = parts.getOrNull(1) ?: ""
+                        SubModeItem(name) {
+                            viewModel.connectToHost(id, GameViewModel.ConnectionType.ONLINE)
                             onActionStarted()
                             
                             scope.launch {
@@ -358,12 +364,12 @@ fun SidebarContent(
                 fontSize = 14.sp, 
                 fontWeight = FontWeight.Bold
             )
-            Switch(
-                enabled = viewModel.authState != GameViewModel.AuthState.GUEST,
-                checked = viewModel.isConnectedToServer,
-                onCheckedChange = { 
-                    viewModel.toggleServerConnection("10.54.16.238", it)
-                },
+                Switch(
+                    enabled = viewModel.authState != GameViewModel.AuthState.GUEST,
+                    checked = viewModel.isConnectedToServer,
+                    onCheckedChange = { 
+                        viewModel.toggleServerConnection("", it)
+                    },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFFD6B37A),
                     checkedTrackColor = Color(0xFF5A3822),

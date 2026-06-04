@@ -153,7 +153,7 @@ fun ProfileDropdownMenu(
                         .height(70.dp),
                     onClick = { 
                         if (viewModel.isConnectedToServer) {
-                            viewModel.toggleServerConnection("10.54.16.238", false)
+                            viewModel.toggleServerConnection("", false)
                         } else {
                             showAuthDialog = true
                         }
@@ -178,13 +178,15 @@ fun ProfileDropdownMenu(
                 viewModel = viewModel,
                 onLogin = { user, pass -> 
                     viewModel.loginUser(user, pass)
-                    showAuthDialog = false
                 },
                 onRegister = { user, email, pass, country ->
                     viewModel.registerUser(user, email, pass, country)
-                    showAuthDialog = false
                 },
-                onDismiss = { showAuthDialog = false }
+                onDismiss = { 
+                    showAuthDialog = false
+                    viewModel.authErrorMessage = null
+                    viewModel.authSuccessMessage = null
+                }
             )
         }
     }
@@ -273,6 +275,15 @@ fun AuthDialog(
                     Text(
                         text = viewModel.authErrorMessage!!,
                         color = Color.Red,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+
+                if (viewModel.authSuccessMessage != null) {
+                    Text(
+                        text = viewModel.authSuccessMessage!!,
+                        color = Color.Green,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(top = 4.dp)
                     )

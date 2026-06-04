@@ -24,4 +24,6 @@ interface AuthApiService {
         @Header("Authorization") token: String,
         @Body payload: Map<String, String>
     ): Response<ProfileRead>
+    @GET("users/{user_id}")
+    suspend fun getUser(@retrofit2.http.Path("user_id") userId: java.util.UUID): Response<UserRead>
 }
