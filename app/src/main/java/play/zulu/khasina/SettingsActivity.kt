@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -73,24 +76,33 @@ fun SettingsScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color(0xFFEBC98F))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1B120B))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
-        containerColor = Color(0xFF1B120B)
+        containerColor = Color.Transparent
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-        ) {
-            items(items) { item ->
-                SettingsRow(item) {
-                    if (item.title == "MULTIPLAYER" || item.title == "ADVANCED") {
-                        showNetworkDialog = true
+        Box(modifier = Modifier.fillMaxSize()) {
+            Image(
+                painter = painterResource(R.drawable.bgbl),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(16.dp)
+            ) {
+                items(items) { item ->
+                    SettingsRow(item) {
+                        if (item.title == "MULTIPLAYER" || item.title == "ADVANCED") {
+                            showNetworkDialog = true
+                        }
                     }
+                    HorizontalDivider(color = Color(0xFF5A3822).copy(alpha = 0.5f), thickness = 0.5.dp)
                 }
-                HorizontalDivider(color = Color(0xFF5A3822), thickness = 0.5.dp)
             }
         }
 

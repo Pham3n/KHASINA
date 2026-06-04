@@ -31,10 +31,16 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
     val scores = engine.calculateScores()
 
     Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(R.drawable.bgbr),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF1A120D))
                 .statusBarsPadding()
                 .padding(12.dp)
         ) {
