@@ -36,6 +36,19 @@ data class UserRead(
     val createdAt: String
 )
 
+data class FriendRead(
+    val id: UUID,
+    val user_id: UUID,
+    val friend_id: UUID,
+    val status: String,
+    val created_at: String,
+    var friendUsername: String? = null // For UI display
+)
+
+data class FriendCreate(
+    val friend_id: UUID
+)
+
 data class ProfileRead(
     val id: UUID,
     @SerializedName("user_id")

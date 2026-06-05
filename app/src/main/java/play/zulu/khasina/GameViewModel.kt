@@ -32,7 +32,8 @@ class GameViewModel : ViewModel() {
     var connectionType by mutableStateOf<ConnectionType?>(null)
     var isConnectedToServer by mutableStateOf(false)
     val onlinePlayers = mutableStateListOf<String>()
-    val userChats = mutableStateListOf<ChatItem>()
+    val officialChats = mutableStateListOf<ChatItem>()
+    val personalChats = mutableStateListOf<ChatItem>()
     var selectedChat by mutableStateOf<ChatItem?>(null)
     val chatMessages = mutableStateListOf<ChatMessage>()
 
@@ -44,6 +45,8 @@ class GameViewModel : ViewModel() {
     
     var isChatVisible by mutableStateOf(false)
     var isProfileVisible by mutableStateOf(false)
+    var isFriendsVisible by mutableStateOf(false)
+    var floatingMessage by mutableStateOf<String?>(null)
     
     private var turnTimerJob: Job? = null
     var isMultiStagePlayActive by mutableStateOf(false)
@@ -60,6 +63,7 @@ class GameViewModel : ViewModel() {
     var currentUserData by mutableStateOf<UserRead?>(null)
     var authErrorMessage by mutableStateOf<String?>(null)
     var authSuccessMessage by mutableStateOf<String?>(null)
+    val friendsList = mutableStateListOf<FriendRead>()
 
     private var userStorage: UserStorage? = null
     private var authApi: AuthApiService? = null
@@ -105,9 +109,65 @@ class GameViewModel : ViewModel() {
             currentUserProfile = storage.getProfileData()
             currentUser = currentUserData?.username
             authState = AuthState.AUTHENTICATED
-            // Optionally auto-connect if we have a token
+            
+            // Load Cached Chats
+            val cachedRooms = storage.getChatRooms()
+            if (cachedRooms.isNotEmpty()) {
+                updateChatLists(cachedRooms)
+            }
+
             attemptServerConnection()
         }
+    }
+
+    private fun updateChatLists(rooms: List<ChatRoomRead>) {
+        officialChats.clear()
+        personalChats.clear()
+        
+        rooms.forEach { room ->
+            val roomNameLower = room.name.lowercase()
+            val isGlobal = roomNameLower.contains("global") || roomNameLower.contains("lobby")
+            val isLeague = roomNameLower.contains("league")
+            val isAnnounce = roomNameLower.contains("announcements")
+            
+            val isOfficial = isGlobal || isLeague || isAnnounce
+            
+            val localName = when {
+                isGlobal -> "Global"
+                isLeague -> "League"
+                isAnnounce -> "Announcements"
+                else -> room.name
+            }
+
+            val icon = when {
+                isGlobal -> Icons.Default.Public
+                isLeague -> Icons.Default.EmojiEvents
+                isAnnounce -> Icons.Default.Campaign
+                else -> Icons.Default.Chat
+            }
+
+            val item = ChatItem(
+                title = localName,
+                subtitle = if (isOfficial) "Official" else "${room.room_type} Room",
+                icon = icon,
+                iconColor = if (isOfficial) Color(0xFFEBC98F) else Color(0xFFD6B37A),
+                roomId = room.id
+            )
+
+            if (isOfficial) {
+                if (!officialChats.any { it.title == localName }) {
+                    officialChats.add(item)
+                }
+            } else {
+                if (!personalChats.any { it.title == localName }) {
+                    personalChats.add(item)
+                }
+            }
+        }
+        
+        val sortedOfficial = officialChats.toList().sortedBy { it.title }
+        officialChats.clear()
+        officialChats.addAll(sortedOfficial)
     }
 
     private fun saveUserLocally() {
@@ -118,7 +178,6 @@ class GameViewModel : ViewModel() {
         userStorage?.clear()
     }
 
-    // Form Cache
     var cachedUsername by mutableStateOf("")
     var cachedEmail by mutableStateOf("")
     var cachedPassword by mutableStateOf("")
@@ -134,10 +193,7 @@ class GameViewModel : ViewModel() {
         onReceived = { message -> handleReceivedMessage(message) }
     )
     
-    private val authService = OnlineService(
-        onConnected = { },
-        onReceived = { }
-    )
+    private val authService = OnlineService(onConnected = { }, onReceived = { })
     private val gameService = OnlineService(
         onConnected = { 
             isConnectedToServer = true
@@ -162,10 +218,6 @@ class GameViewModel : ViewModel() {
     private var gameServerAddress: Pair<String, Int>? = null
     private var chatServerAddress: Pair<String, Int>? = null
 
-    init {
-        // userChats will be populated from server
-    }
-
     fun refreshChatRooms() {
         viewModelScope.launch {
             val api = chatApi ?: return@launch
@@ -173,24 +225,41 @@ class GameViewModel : ViewModel() {
                 val response = api.listRooms()
                 if (response.isSuccessful) {
                     val rooms = response.body() ?: emptyList()
-                    userChats.clear()
-                    rooms.forEach { room ->
-                        val icon = when (room.room_type.lowercase()) {
-                            "global" -> Icons.Default.Public
-                            "league" -> Icons.Default.EmojiEvents
-                            else -> Icons.Default.Chat
+                    userStorage?.saveChatRooms(rooms)
+                    updateChatLists(rooms)
+                }
+            } catch (e: Exception) {}
+        }
+    }
+
+    fun showFloatingMessage(message: String) {
+        viewModelScope.launch {
+            floatingMessage = message
+            delay(3000)
+            if (floatingMessage == message) floatingMessage = null
+        }
+    }
+
+    fun addFriendByUsername(username: String, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val api = authApi ?: run { onComplete(false); return@launch }
+            try {
+                val searchResp = api.searchUsers(username)
+                if (searchResp.isSuccessful) {
+                    val users = searchResp.body() ?: emptyList()
+                    val exactUser = users.find { it.username.equals(username, ignoreCase = true) }
+                    if (exactUser != null) {
+                        val token = accessToken ?: ""
+                        val addResp = api.addFriend("Bearer $token", FriendCreate(exactUser.id))
+                        if (addResp.isSuccessful) {
+                            refreshFriends()
+                            onComplete(true)
+                            return@launch
                         }
-                        userChats.add(
-                            ChatItem(
-                                title = room.name,
-                                subtitle = "${room.room_type} Room",
-                                icon = icon,
-                                iconColor = Color(0xFFEBC98F)
-                            )
-                        )
                     }
                 }
             } catch (e: Exception) {}
+            onComplete(false)
         }
     }
 
@@ -231,7 +300,6 @@ class GameViewModel : ViewModel() {
             gameServerAddress = Pair(ip, basePort + 2)
             foundAuth = true; foundGame = true; foundChat = true
         } else {
-            // Scan range 192.168.8.100 - 105
             for (i in 100..105) {
                 val ip = "192.168.8.$i"
                 for (port in 8000..8010) {
@@ -281,9 +349,8 @@ class GameViewModel : ViewModel() {
     }
 
     fun connectToHost(address: String, type: ConnectionType) {
-        if (type == ConnectionType.ONLINE) {
-            initiateOnlineMatch(address)
-        } else {
+        if (type == ConnectionType.ONLINE) { initiateOnlineMatch(address) }
+        else {
             isMultiplayer = true; isHost = false; connectionType = type; engine.useAI = false
             if (type == ConnectionType.BLUETOOTH) bluetoothService.connect(address)
             else if (type == ConnectionType.LAN) lanService.connect(address)
@@ -292,9 +359,8 @@ class GameViewModel : ViewModel() {
     }
 
     fun toggleServerConnection(address: String, connect: Boolean) {
-        if (connect) {
-            attemptServerConnection()
-        } else {
+        if (connect) { attemptServerConnection() }
+        else {
             authService.stop(); gameService.stop(); chatService.stop()
             isConnectedToServer = false; connectionState = ConnectionState.OFFLINE
             authServerAddress = null; gameServerAddress = null; chatServerAddress = null
@@ -305,12 +371,8 @@ class GameViewModel : ViewModel() {
     fun logout() {
         toggleServerConnection("", false)
         authState = AuthState.GUEST
-        currentUser = null
-        currentUserData = null
-        currentUserProfile = null
-        accessToken = null
-        userChats.clear()
-        clearUserLocally()
+        currentUser = null; currentUserData = null; currentUserProfile = null; accessToken = null
+        officialChats.clear(); personalChats.clear(); clearUserLocally()
         lastMessage = "Logged out. Guest mode."
     }
 
@@ -365,9 +427,7 @@ class GameViewModel : ViewModel() {
         clearSelections()
         if (success) {
             isMultiStagePlayActive = true
-            if (isMultiplayer && activeSessionId != null) {
-                sendGameAction("MOVE", mapOf("card" to card))
-            }
+            if (isMultiplayer && activeSessionId != null) { sendGameAction("MOVE", mapOf("card" to card)) }
             startMultiStageTimer()
         } else endTurn()
     }
@@ -402,8 +462,46 @@ class GameViewModel : ViewModel() {
         viewModelScope.launch {
             val api = gameApi ?: return@launch
             val sessionId = activeSessionId ?: return@launch
+            try { api.applyAction("Bearer $accessToken", sessionId, GameActionRequest(type, payload)) } catch (e: Exception) {}
+        }
+    }
+
+    fun addFriend(friendId: UUID) {
+        viewModelScope.launch {
+            val api = authApi ?: return@launch
+            val token = accessToken ?: return@launch
             try {
-                api.applyAction("Bearer $accessToken", sessionId, GameActionRequest(type, payload))
+                val response = api.addFriend("Bearer $token", FriendCreate(friendId))
+                if (response.isSuccessful) { refreshFriends() }
+            } catch (e: Exception) {}
+        }
+    }
+
+    fun searchUsers(query: String, onResult: (List<UserRead>) -> Unit) {
+        viewModelScope.launch {
+            val api = authApi ?: return@launch
+            try {
+                val response = api.searchUsers(query)
+                if (response.isSuccessful) { onResult(response.body() ?: emptyList()) }
+            } catch (e: Exception) {}
+        }
+    }
+
+    fun refreshFriends() {
+        viewModelScope.launch {
+            val api = authApi ?: return@launch
+            val token = accessToken ?: return@launch
+            try {
+                val response = api.getFriends("Bearer $token")
+                if (response.isSuccessful) {
+                    val friends = response.body() ?: emptyList()
+                    friendsList.clear()
+                    friends.forEach { friend ->
+                        val userResp = api.getUser(friend.friend_id)
+                        if (userResp.isSuccessful) { friend.friendUsername = userResp.body()?.username }
+                        friendsList.add(friend)
+                    }
+                }
             } catch (e: Exception) {}
         }
     }
@@ -423,125 +521,59 @@ class GameViewModel : ViewModel() {
 
     fun registerUser(username: String, email: String, pass: String, country: String) {
         viewModelScope.launch {
-            authErrorMessage = null
-            authSuccessMessage = null
-            connectionState = ConnectionState.CONNECTING
-            val foundAuth = discoverServers()
-            
-            if (foundAuth) {
-                val api = authApi
-                if (api != null) {
-                    try {
-                        val response = api.register(UserCreate(username, email, pass))
-                        if (response.isSuccessful) {
-                            val tokens = response.body()
-                            accessToken = tokens?.accessToken
-                            val authHeader = "Bearer ${tokens?.accessToken}"
-
-                            // 1. Update Profile (Country)
-                            api.updateProfile(authHeader, mapOf("country" to country))
-                            
-                            // 2. Fetch User & Profile details for the UI
-                            currentUserData = api.getMe(authHeader).body()
-                            currentUserProfile = api.getProfile(authHeader).body()
-
-                            authState = AuthState.AUTHENTICATED
-                            connectionState = ConnectionState.ONLINE
-                            currentUser = username
-                            lastMessage = "Welcome, $username! Registered."
-                            authErrorMessage = null
-                            authSuccessMessage = "Account created and logged in!"
-                            saveUserLocally()
-                            
-                            authService.connect(authServerAddress!!.first, authServerAddress!!.second)
-                            if (gameServerAddress != null) gameService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
-                            if (chatServerAddress != null) chatService.connect(chatServerAddress!!.first, chatServerAddress!!.second)
-
-                            if (!userChats.any { it.title == "Main Lobby" }) {
-                                userChats.add(0, ChatItem("Main Lobby", "Public • Everyone", Icons.Default.Public, Color(0xFFEBC98F)))
-                            }
-                            refreshChatRooms()
-                            startSessionPolling()
-                        } else {
-                            val errorBody = response.errorBody()?.string()
-                            authErrorMessage = "Failed: $errorBody"
-                            lastMessage = "Registration failed."
-                            authState = AuthState.GUEST
-                            connectionState = ConnectionState.OFFLINE
-                        }
-                    } catch (e: Exception) {
-                        authErrorMessage = "Error: ${e.message}"
-                        lastMessage = "Error: ${e.message}"
-                        authState = AuthState.GUEST
-                        connectionState = ConnectionState.OFFLINE
+            authErrorMessage = null; authSuccessMessage = null; connectionState = ConnectionState.CONNECTING
+            discoverServers()
+            val api = authApi
+            if (api != null) {
+                try {
+                    val response = api.register(UserCreate(username, email, pass))
+                    if (response.isSuccessful) {
+                        val tokens = response.body()
+                        accessToken = tokens?.accessToken
+                        val authHeader = "Bearer ${tokens?.accessToken}"
+                        api.updateProfile(authHeader, mapOf("country" to country))
+                        currentUserData = api.getMe(authHeader).body()
+                        currentUserProfile = api.getProfile(authHeader).body()
+                        authState = AuthState.AUTHENTICATED; connectionState = ConnectionState.ONLINE; currentUser = username
+                        lastMessage = "Welcome, $username! Registered."; authErrorMessage = null; authSuccessMessage = "Account created and logged in!"
+                        saveUserLocally()
+                        authService.connect(authServerAddress!!.first, authServerAddress!!.second)
+                        if (gameServerAddress != null) gameService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
+                        if (chatServerAddress != null) chatService.connect(chatServerAddress!!.first, chatServerAddress!!.second)
+                        refreshChatRooms(); startSessionPolling()
+                    } else {
+                        authErrorMessage = "Failed: ${response.errorBody()?.string()}"; authState = AuthState.GUEST
                     }
-                }
-            } else {
-                lastMessage = "Auth server not found."
-                authErrorMessage = "Auth server not found on network."
-                authState = AuthState.GUEST
-                connectionState = ConnectionState.OFFLINE
+                } catch (e: Exception) { authErrorMessage = "Error: ${e.message}"; authState = AuthState.GUEST }
             }
         }
     }
 
     fun loginUser(username: String, pass: String) {
         viewModelScope.launch {
-            authErrorMessage = null
-            authSuccessMessage = null
-            connectionState = ConnectionState.CONNECTING
-            val foundAuth = discoverServers()
-            
-            if (foundAuth) {
-                val api = authApi
-                if (api != null) {
-                    try {
-                        val response = api.login(UserLogin(username, pass))
-                        if (response.isSuccessful) {
-                            val tokens = response.body()
-                            accessToken = tokens?.accessToken
-                            val authHeader = "Bearer ${tokens?.accessToken}"
-
-                            // Fetch User & Profile details for the UI
-                            currentUserData = api.getMe(authHeader).body()
-                            currentUserProfile = api.getProfile(authHeader).body()
-
-                            authState = AuthState.AUTHENTICATED
-                            connectionState = ConnectionState.ONLINE
-                            currentUser = username
-                            lastMessage = "Welcome back, $username!"
-                            authErrorMessage = null
-                            authSuccessMessage = "Successfully logged in!"
-                            saveUserLocally()
-                            
-                            authService.connect(authServerAddress!!.first, authServerAddress!!.second)
-                            if (gameServerAddress != null) gameService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
-                            if (chatServerAddress != null) chatService.connect(chatServerAddress!!.first, chatServerAddress!!.second)
-
-                            if (!userChats.any { it.title == "Main Lobby" }) {
-                                userChats.add(0, ChatItem("Main Lobby", "Public • Everyone", Icons.Default.Public, Color(0xFFEBC98F)))
-                            }
-                            refreshChatRooms()
-                            startSessionPolling()
-                        } else {
-                            val errorBody = response.errorBody()?.string()
-                            authErrorMessage = "Invalid credentials or Server error."
-                            lastMessage = "Login failed."
-                            authState = AuthState.GUEST
-                            connectionState = ConnectionState.OFFLINE
-                        }
-                    } catch (e: Exception) {
-                        authErrorMessage = "Error: ${e.message}"
-                        lastMessage = "Error: ${e.message}"
-                        authState = AuthState.GUEST
-                        connectionState = ConnectionState.OFFLINE
+            authErrorMessage = null; authSuccessMessage = null; connectionState = ConnectionState.CONNECTING
+            discoverServers()
+            val api = authApi
+            if (api != null) {
+                try {
+                    val response = api.login(UserLogin(username, pass))
+                    if (response.isSuccessful) {
+                        val tokens = response.body()
+                        accessToken = tokens?.accessToken
+                        val authHeader = "Bearer ${tokens?.accessToken}"
+                        currentUserData = api.getMe(authHeader).body()
+                        currentUserProfile = api.getProfile(authHeader).body()
+                        authState = AuthState.AUTHENTICATED; connectionState = ConnectionState.ONLINE; currentUser = username
+                        lastMessage = "Welcome back, $username!"; authErrorMessage = null; authSuccessMessage = "Successfully logged in!"
+                        saveUserLocally()
+                        authService.connect(authServerAddress!!.first, authServerAddress!!.second)
+                        if (gameServerAddress != null) gameService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
+                        if (chatServerAddress != null) chatService.connect(chatServerAddress!!.first, chatServerAddress!!.second)
+                        refreshChatRooms(); startSessionPolling()
+                    } else {
+                        authErrorMessage = "Invalid credentials or Server error."; authState = AuthState.GUEST
                     }
-                }
-            } else {
-                lastMessage = "Auth server not found."
-                authErrorMessage = "Auth server not found on network."
-                authState = AuthState.GUEST
-                connectionState = ConnectionState.OFFLINE
+                } catch (e: Exception) { authErrorMessage = "Error: ${e.message}"; authState = AuthState.GUEST }
             }
         }
     }
@@ -651,10 +683,7 @@ class GameViewModel : ViewModel() {
                     val session = response.body()
                     if (session != null) {
                         activeSessionId = session.id
-                        isMultiplayer = true
-                        isHost = true
-                        connectionType = ConnectionType.ONLINE
-                        engine.useAI = false
+                        isMultiplayer = true; isHost = true; connectionType = ConnectionType.ONLINE; engine.useAI = false
                         lastMessage = "Match started! Your turn."
                         startSessionPolling()
                     }
@@ -666,19 +695,41 @@ class GameViewModel : ViewModel() {
     }
 
     fun loadChatMessages(chat: ChatItem) {
+        val rid = chat.roomId ?: return
+        val cached = userStorage?.getMessages(rid) ?: emptyList()
+        chatMessages.clear(); chatMessages.addAll(cached)
+
         viewModelScope.launch {
             val api = chatApi ?: return@launch
-            val roomsResponse = api.listRooms()
-            if (roomsResponse.isSuccessful) {
-                val room = roomsResponse.body()?.find { it.name == chat.title }
-                if (room != null) {
-                    val msgResponse = api.getMessages(room.id)
-                    if (msgResponse.isSuccessful) {
-                        chatMessages.clear()
-                        msgResponse.body()?.forEach { m -> chatMessages.add(ChatMessage(m.sender_id.toString(), m.content, m.created_at)) }
+            try {
+                val msgResponse = api.getMessages(rid)
+                if (msgResponse.isSuccessful) {
+                    val newMsgs = msgResponse.body()?.map { m -> 
+                        ChatMessage(m.sender_id.toString(), m.content, m.created_at) 
+                    } ?: emptyList()
+                    if (newMsgs.isNotEmpty()) {
+                        chatMessages.clear(); chatMessages.addAll(newMsgs)
+                        userStorage?.saveMessages(rid, newMsgs)
                     }
                 }
-            }
+            } catch (e: Exception) {}
+        }
+    }
+
+    fun sendChatMessage(content: String) {
+        val chat = selectedChat ?: return
+        val rid = chat.roomId ?: return
+        val token = accessToken ?: return
+        
+        viewModelScope.launch {
+            val api = chatApi ?: return@launch
+            try {
+                // Using the /send endpoint added to PLAYCHAT server
+                val response = api.sendMessage("Bearer $token", rid, IncomingChatMessage(content))
+                if (response.isSuccessful) {
+                    loadChatMessages(chat)
+                }
+            } catch (e: Exception) {}
         }
     }
 

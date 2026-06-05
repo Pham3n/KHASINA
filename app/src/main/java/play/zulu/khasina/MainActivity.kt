@@ -85,6 +85,24 @@ class MainActivity : ComponentActivity() {
                             KHASINAScreen(viewModel, onMenuClick = {
                                 scope.launch { drawerState.open() }
                             })
+
+                            // Global Floating Message
+                            if (viewModel.floatingMessage != null) {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Surface(
+                                        color = Color.Black.copy(alpha = 0.8f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEBC98F))
+                                    ) {
+                                        Text(
+                                            text = viewModel.floatingMessage!!,
+                                            color = Color.White,
+                                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -381,17 +399,6 @@ fun SidebarContent(
                     disabledUncheckedThumbColor = Color.DarkGray
                 )
             )
-        }
-    }
-
-    if (showError) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Surface(
-                color = Color.Black.copy(alpha = 0.7f),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("connection error", color = Color.White, modifier = Modifier.padding(16.dp))
-            }
         }
     }
 }

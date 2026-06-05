@@ -45,4 +45,25 @@ class UserStorage(context: Context) {
 
     fun getServerPort(): Int = prefs.getInt("server_port", 8000)
     fun setServerPort(port: Int) = prefs.edit().putInt("server_port", port).apply()
+
+    // Chat Persistence
+    fun saveChatRooms(rooms: List<ChatRoomRead>) {
+        prefs.edit().putString("cached_rooms", gson.toJson(rooms)).apply()
+    }
+
+    fun getChatRooms(): List<ChatRoomRead> {
+        val json = prefs.getString("cached_rooms", null) ?: return emptyList()
+        val type = object : com.google.gson.reflect.TypeToken<List<ChatRoomRead>>() {}.type
+        return try { gson.fromJson(json, type) } catch (e: Exception) { emptyList() }
+    }
+
+    fun saveMessages(roomId: java.util.UUID, messages: List<ChatMessage>) {
+        prefs.edit().putString("msgs_$roomId", gson.toJson(messages)).apply()
+    }
+
+    fun getMessages(roomId: java.util.UUID): List<ChatMessage> {
+        val json = prefs.getString("msgs_$roomId", null) ?: return emptyList()
+        val type = object : com.google.gson.reflect.TypeToken<List<ChatMessage>>() {}.type
+        return try { gson.fromJson(json, type) } catch (e: Exception) { emptyList() }
+    }
 }

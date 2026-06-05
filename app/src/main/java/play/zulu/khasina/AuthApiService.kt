@@ -24,6 +24,18 @@ interface AuthApiService {
         @Header("Authorization") token: String,
         @Body payload: Map<String, String>
     ): Response<ProfileRead>
+    @GET("users/search")
+    suspend fun searchUsers(@retrofit2.http.Query("query") query: String): Response<List<UserRead>>
+
     @GET("users/{user_id}")
     suspend fun getUser(@retrofit2.http.Path("user_id") userId: java.util.UUID): Response<UserRead>
+
+    @GET("friends")
+    suspend fun getFriends(@Header("Authorization") token: String): Response<List<FriendRead>>
+
+    @POST("friends")
+    suspend fun addFriend(
+        @Header("Authorization") token: String,
+        @Body payload: FriendCreate
+    ): Response<FriendRead>
 }

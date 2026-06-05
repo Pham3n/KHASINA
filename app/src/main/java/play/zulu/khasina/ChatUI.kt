@@ -29,7 +29,8 @@ data class ChatItem(
     val title: String,
     val subtitle: String,
     val icon: ImageVector,
-    val iconColor: Color
+    val iconColor: Color,
+    val roomId: java.util.UUID? = null
 )
 
 @Composable
@@ -39,22 +40,8 @@ fun ChatsDropdownMenu(
     onChatClick: (ChatItem) -> Unit = {},
     onAddChatClick: () -> Unit = {}
 ) {
-    val defaultChats = listOf(
-        ChatItem(
-            title = "Global Chat",
-            subtitle = "Public",
-            icon = Icons.Default.Shield,
-            iconColor = Color(0xFF9C6B28)
-        ),
-        ChatItem(
-            title = "Announcements",
-            subtitle = "Updates",
-            icon = Icons.Default.Campaign,
-            iconColor = Color(0xFF5B3C6F)
-        )
-    )
-
-    val userChats = viewModel.userChats
+    val officialChats = viewModel.officialChats
+    val personalChats = viewModel.personalChats
 
     Box(
         modifier = Modifier
@@ -115,10 +102,10 @@ fun ChatsDropdownMenu(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
-                    items(defaultChats) { chat ->
+                    items(officialChats) { chat ->
                         ChatRow(chat = chat, onClick = { 
                             viewModel.selectedChat = chat
-                            viewModel.chatMessages.clear()
+                            viewModel.loadChatMessages(chat)
                             onClose()
                         })
                     }
@@ -132,10 +119,10 @@ fun ChatsDropdownMenu(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
-                    items(userChats) { chat ->
+                    items(personalChats) { chat ->
                         ChatRow(chat = chat, onClick = { 
                             viewModel.selectedChat = chat
-                            viewModel.chatMessages.clear()
+                            viewModel.loadChatMessages(chat)
                             onClose()
                         })
                     }

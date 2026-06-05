@@ -12,10 +12,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -214,6 +214,14 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                 onClose = { viewModel.isProfileVisible = false }
             )
         }
+
+        // ===== FRIENDS DROPDOWN OVERLAY =====
+        if (viewModel.isFriendsVisible) {
+            FriendsDropdownMenu(
+                viewModel = viewModel,
+                onClose = { viewModel.isFriendsVisible = false }
+            )
+        }
     }
 }
 
@@ -351,36 +359,86 @@ fun PlayerHandPanel(
 fun ChatBox(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val selectedChat = viewModel.selectedChat
     val messages = viewModel.chatMessages
+    var text by remember { mutableStateOf("") }
     
     Card(
-        modifier = modifier.fillMaxWidth().height(100.dp),
+        modifier = modifier.fillMaxWidth().height(140.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B12)),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = selectedChat?.title ?: "GAME CHAT", 
-                color = Color(0xFFEBC98F), 
-                fontSize = 12.sp, 
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = selectedChat?.title ?: "GAME CHAT", 
+                    color = Color(0xFFEBC98F), 
+                    fontSize = 12.sp, 
+                    fontWeight = FontWeight.Bold
+                )
+                if (selectedChat != null) {
+                    IconButton(
+                        onClick = { viewModel.refreshChatRooms(); viewModel.isChatVisible = true },
+                        modifier = Modifier.size(20.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, null, tint = Color(0xFFEBC98F), modifier = Modifier.size(14.dp))
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(4.dp))
             
-            LazyColumn(modifier = Modifier.weight(1f), reverseLayout = true) {
-                items(messages.asReversed()) { msg ->
-                    Text(
-                        text = "[${msg.timestamp}] ${msg.sender}: ${msg.text}", 
-                        color = Color.White, 
-                        fontSize = 12.sp
-                    )
-                }
-                if (messages.isEmpty()) {
-                    item {
+            Box(modifier = Modifier.weight(1f)) {
+                LazyColumn(modifier = Modifier.fillMaxSize(), reverseLayout = true) {
+                    items(messages.asReversed()) { msg ->
                         Text(
-                            text = if (selectedChat == null) "Select a chat to start messaging" else "No messages in ${selectedChat.title}",
-                            color = Color.Gray,
+                            text = "[${msg.timestamp.take(16).replace("T", " ")}] ${msg.sender.take(8)}: ${msg.text}", 
+                            color = Color.White, 
                             fontSize = 11.sp
                         )
+                    }
+                    if (messages.isEmpty()) {
+                        item {
+                            Text(
+                                text = if (selectedChat == null) "Select a chat to start messaging" else "No messages in ${selectedChat.title}",
+                                color = Color.Gray,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (selectedChat != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        placeholder = { Text("Type a message...", fontSize = 10.sp) },
+                        textStyle = LocalTextStyle.current.copy(fontSize = 11.sp),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFF3B2417),
+                            unfocusedContainerColor = Color(0xFF3B2417),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        singleLine = true
+                    )
+                    IconButton(
+                        onClick = {
+                            if (text.isNotBlank()) {
+                                viewModel.sendChatMessage(text)
+                                text = ""
+                            }
+                        },
+                        enabled = text.isNotBlank()
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color(0xFFEBC98F))
                     }
                 }
             }

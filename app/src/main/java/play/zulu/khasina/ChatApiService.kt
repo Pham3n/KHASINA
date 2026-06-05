@@ -20,6 +20,13 @@ interface ChatApiService {
         @Query("limit") limit: Int = 50
     ): Response<List<ChatMessageRead>>
 
+    @POST("rooms/{room_id}/send")
+    suspend fun sendMessage(
+        @Header("Authorization") token: String,
+        @Path("room_id") roomId: UUID,
+        @Body request: IncomingChatMessage
+    ): Response<ChatMessageRead>
+
     @PUT("presence/me")
     suspend fun setPresence(
         @Header("Authorization") token: String,
@@ -49,6 +56,10 @@ data class ChatMessageRead(
     val sender_id: UUID,
     val content: String,
     val created_at: String
+)
+
+data class IncomingChatMessage(
+    val content: String
 )
 
 data class PresenceUpdate(

@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import kotlinx.coroutines.delay
 
 data class ProfileMenuItem(
     val title: String,
@@ -34,6 +35,15 @@ fun ProfileDropdownMenu(
     onClose: () -> Unit = {}
 ) {
     var showAuthDialog by remember { mutableStateOf(false) }
+
+    // Close dialog automatically on success
+    if (viewModel.authSuccessMessage != null) {
+        LaunchedEffect(Unit) {
+            delay(1000)
+            showAuthDialog = false
+            viewModel.authSuccessMessage = null
+        }
+    }
 
     val menuItems = listOf(
         ProfileMenuItem("Profile", Icons.Default.Person),
@@ -141,7 +151,12 @@ fun ProfileDropdownMenu(
                     modifier = Modifier.weight(1f)
                 ) {
                     items(menuItems) { item ->
-                        ProfileMenuRow(item)
+                        ProfileMenuRow(item) {
+                            if (item.title == "Friends") {
+                                viewModel.refreshFriends()
+                                viewModel.isFriendsVisible = true
+                            }
+                        }
                     }
                 }
 
@@ -325,11 +340,11 @@ fun AuthDialog(
 }
 
 @Composable
-fun ProfileMenuRow(item: ProfileMenuItem) {
+fun ProfileMenuRow(item: ProfileMenuItem, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { }
+            .clickable { onClick() }
             .padding(vertical = 12.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
