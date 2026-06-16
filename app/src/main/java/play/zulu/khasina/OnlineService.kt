@@ -17,8 +17,8 @@ class OnlineService(
     private var clientThread: ClientThread? = null
     private var connectedThread: ConnectedThread? = null
     private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS) // Increased from 300ms
-        .readTimeout(5, TimeUnit.SECONDS)
+        .connectTimeout(2, TimeUnit.SECONDS)
+        .readTimeout(2, TimeUnit.SECONDS)
         .build()
 
     fun connect(ipAddress: String, port: Int) {

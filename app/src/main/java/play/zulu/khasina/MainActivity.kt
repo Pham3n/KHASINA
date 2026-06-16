@@ -310,31 +310,40 @@ fun SidebarContent(
                 expandedMode = if (expandedMode == GameViewModel.ConnectionType.ONLINE) null else GameViewModel.ConnectionType.ONLINE
                 if (expandedMode == GameViewModel.ConnectionType.ONLINE) {
                     viewModel.refreshOnlinePlayers()
+                    viewModel.refreshFriends()
                 }
             }
         )
         AnimatedVisibility(visible = expandedMode == GameViewModel.ConnectionType.ONLINE) {
-            Column(modifier = Modifier.padding(start = 32.dp)) {
+            Column(modifier = Modifier.padding(start = 24.dp)) {
                 if (!viewModel.isConnectedToServer) {
-                    Text("Log in from Profile to see players", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp, modifier = Modifier.padding(8.dp))
-                } else if (viewModel.onlinePlayers.isEmpty()) {
-                    Text("No players online", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp, modifier = Modifier.padding(8.dp))
+                    Text("Log in to see players", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp, modifier = Modifier.padding(8.dp))
                 } else {
-                    viewModel.onlinePlayers.forEach { entry ->
-                        val parts = entry.split("|")
-                        val name = parts.getOrNull(0) ?: "Unknown"
-                        val id = parts.getOrNull(1) ?: ""
-                        SubModeItem(name) {
-                            viewModel.connectToHost(id, GameViewModel.ConnectionType.ONLINE)
-                            onActionStarted()
-                            
-                            scope.launch {
-                                delay(5000)
-                                if (viewModel.connectionType != GameViewModel.ConnectionType.ONLINE) {
-                                    showError = true
-                                    delay(3000)
-                                    showError = false
-                                }
+                    // ===== FRIENDS SECTION =====
+                    Text("FRIENDS", color = Color(0xFFD6B37A), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp, top = 8.dp))
+                    if (viewModel.friendsList.isEmpty()) {
+                        Text("No friends listed", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp))
+                    } else {
+                        viewModel.friendsList.filter { it.status == "ACCEPTED" }.forEach { friend ->
+                            SubModeItem(friend.friendUsername ?: friend.friend_id.toString().take(8)) {
+                                viewModel.connectToHost(friend.friend_id.toString(), GameViewModel.ConnectionType.ONLINE)
+                                onActionStarted()
+                            }
+                        }
+                    }
+
+                    // ===== ONLINE PLAYERS SECTION =====
+                    Text("ONLINE", color = Color(0xFFD6B37A), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp, top = 8.dp))
+                    if (viewModel.onlinePlayers.isEmpty()) {
+                        Text("No players online", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, top = 4.dp))
+                    } else {
+                        viewModel.onlinePlayers.forEach { entry ->
+                            val parts = entry.split("|")
+                            val name = parts.getOrNull(0) ?: "Unknown"
+                            val id = parts.getOrNull(1) ?: ""
+                            SubModeItem(name) {
+                                viewModel.connectToHost(id, GameViewModel.ConnectionType.ONLINE)
+                                onActionStarted()
                             }
                         }
                     }

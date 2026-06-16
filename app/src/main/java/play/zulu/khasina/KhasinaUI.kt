@@ -58,7 +58,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                     IconButton(onClick = { 
                         viewModel.isChatVisible = true 
                         viewModel.refreshChatRooms()
-                    }) {
+                    }) { 
                         Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color(0xFFE0BC7A)) 
                     }
                     IconButton(onClick = { viewModel.isProfileVisible = true }) { 
@@ -78,7 +78,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .background(Color(0xFF6A4528), RoundedCornerShape(20.dp))
+                        .background(Color(0xFF6A4528).copy(alpha = 0.8f), RoundedCornerShape(20.dp))
                         .padding(16.dp)
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
@@ -108,10 +108,10 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                     SideInfoCard(
                         title = "TURN",
                         content = if (engine.gameOver) "GAME OVER" 
-                                  else if (viewModel.isMultiStagePlayActive) "YOUR TURN"
-                                  else if (engine.isPlayerTurn) "YOUR TURN" 
-                                  else if (viewModel.isMultiplayer) "OPPONENT" 
-                                  else "AI TURN"
+                                  else if (viewModel.isMultiStagePlayActive) "STAGE..."
+                                  else if (engine.currentPlayerIndex == 0) "YOU" 
+                                  else if (engine.playerCount == 2) "OPPONENT"
+                                  else "PLAYER ${engine.currentPlayerIndex}"
                     )
 
                     // DECK
@@ -128,16 +128,16 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                             Text(text = "DECK", color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             Spacer(modifier = Modifier.height(4.dp))
                             if (engine.deck.isNotEmpty()) {
-                                Box(modifier = Modifier.size(width = 49.dp, height = 70.dp)) {
+                                Box(modifier = Modifier.size(width = 40.dp, height = 56.dp)) {
                                     Image(painterResource(R.drawable.crd), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                                    Text(engine.deck.size.toString(), color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
+                                    Text(engine.deck.size.toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.align(Alignment.Center))
                                 }
                             } else { ConstructionPlaceholder() }
                         }
                     }
 
-                    SideInfoCard(title = "MODE", content = if (viewModel.isMultiplayer) viewModel.connectionType?.name ?: "ONLINE" else "LOCAL")
-                    SideInfoCard(title = "YOUR STACK", content = "${engine.playerStack.size} Cards")
+                    SideInfoCard(title = "MODE", content = if (viewModel.isMultiplayer) "ONLINE" else "LOCAL")
+                    SideInfoCard(title = "TEAM 0", content = "${engine.teamStacks[0].size} Cards")
                 }
             }
 
@@ -145,7 +145,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
 
             // ===== PLAYER HAND =====
             PlayerCardsSection(
-                cards = engine.playerHand,
+                cards = engine.hands[0],
                 selectedCard = viewModel.selectedCardHand,
                 onCardSelect = { viewModel.onCardHandClicked(it) }
             )
@@ -156,12 +156,12 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 GameActionButton(
                     text = "CAPTURE",
-                    enabled = (viewModel.selectedCardHand != null) && engine.isPlayerTurn && !engine.gameOver
+                    enabled = (viewModel.selectedCardHand != null) && engine.currentPlayerIndex == 0 && !engine.gameOver
                 ) { viewModel.onCaptureClicked() }
 
                 GameActionButton(
                     text = "BUILD",
-                    enabled = (viewModel.selectedCardHand != null) && engine.isPlayerTurn && !engine.gameOver
+                    enabled = (viewModel.selectedCardHand != null) && engine.currentPlayerIndex == 0 && !engine.gameOver
                 ) { viewModel.onBuildClicked() }
 
                 GameActionButton("RESET") { viewModel.resetGame() }
@@ -173,29 +173,24 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ===== PLAYER INFO =====
-            Row(
+            // ===== PLAYER INFO PANELS =====
+            LazyRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                PlayerHandPanel(
-                    modifier = Modifier.weight(1f),
-                    name = if (viewModel.isMultiplayer) "Opponent" else "AI",
-                    cardsRemaining = engine.aiHand.size,
-                    score = scores["AI"] ?: 0,
-                    isTop = true,
-                    topStackCard = engine.aiStack.lastOrNull(),
-                    isSelected = viewModel.selectedOpponentStackCard != null,
-                    onClick = { viewModel.onOpponentStackClicked() }
-                )
-                PlayerHandPanel(
-                    modifier = Modifier.weight(1f),
-                    name = "You",
-                    cardsRemaining = engine.playerHand.size,
-                    score = scores["Player"] ?: 0,
-                    isTop = false,
-                    topStackCard = engine.playerStack.lastOrNull()
-                )
+                items(engine.playerCount) { index ->
+                    val teamIndex = index % 2
+                    PlayerHandPanel(
+                        modifier = Modifier.width(160.dp),
+                        name = if (index == 0) "You" else "Player $index",
+                        cardsRemaining = engine.hands[index].size,
+                        score = scores["Team$teamIndex"] ?: 0,
+                        isTop = index != 0,
+                        topStackCard = engine.teamStacks[teamIndex].lastOrNull(),
+                        isSelected = index == 1 && viewModel.selectedOpponentStackCard != null,
+                        onClick = { if (index == 1) viewModel.onOpponentStackClicked() }
+                    )
+                }
             }
         }
 
@@ -222,7 +217,86 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                 onClose = { viewModel.isFriendsVisible = false }
             )
         }
+
+        // ===== USER DETAIL OVERLAY =====
+        if (viewModel.isUserDetailVisible) {
+            UserDetailDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.isUserDetailVisible = false }
+            )
+        }
     }
+}
+
+@Composable
+fun UserDetailDialog(
+    viewModel: GameViewModel,
+    onDismiss: () -> Unit
+) {
+    val user = viewModel.selectedUserForProfile ?: return
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF24130C),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(48.dp).background(Color(0xFF8B5E3C), CircleShape))
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(user.displayName ?: user.username, color = Color(0xFFE7C58A), fontWeight = FontWeight.Bold)
+                    if (user.displayName != null) {
+                        Text("@${user.username}", color = Color.Gray, fontSize = 12.sp)
+                    }
+                }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Rating: ${user.rating}", color = Color.White)
+                Text("Member Since: ${user.createdAt.take(10)}", color = Color.Gray, fontSize = 12.sp)
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                val isAlreadyFriend = viewModel.friendsList.any { it.friend_id == user.id }
+                if (!isAlreadyFriend && user.id != viewModel.currentUserData?.id) {
+                    Button(
+                        onClick = { 
+                            viewModel.addFriend(user.id)
+                            onDismiss()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF476B2D))
+                    ) {
+                        Icon(Icons.Default.PersonAdd, null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("ADD FRIEND")
+                    }
+                } else if (isAlreadyFriend) {
+                    Text("You are friends", color = Color.Green, fontWeight = FontWeight.Bold)
+                }
+
+                if (user.id != viewModel.currentUserData?.id) {
+                    Button(
+                        onClick = {
+                            viewModel.initiateOnlineMatch(user.id.toString())
+                            onDismiss()
+                            viewModel.isProfileVisible = false
+                            viewModel.isChatVisible = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5E3C))
+                    ) {
+                        Icon(Icons.Default.SportsEsports, null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("CHALLENGE")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close", color = Color(0xFFE7C58A)) }
+        }
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -392,8 +466,9 @@ fun ChatBox(viewModel: GameViewModel, modifier: Modifier = Modifier) {
             Box(modifier = Modifier.weight(1f)) {
                 LazyColumn(modifier = Modifier.fillMaxSize(), reverseLayout = true) {
                     items(messages.asReversed()) { msg ->
+                        val timeOnly = msg.timestamp.split("T").getOrNull(1)?.take(5) ?: msg.timestamp.take(5)
                         Text(
-                            text = "[${msg.timestamp.take(16).replace("T", " ")}] ${msg.sender.take(8)}: ${msg.text}", 
+                            text = "[$timeOnly] ${msg.sender.take(8)}: ${msg.text}",
                             color = Color.White, 
                             fontSize = 11.sp
                         )

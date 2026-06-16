@@ -194,8 +194,8 @@ fun ProfileDropdownMenu(
                 onLogin = { user, pass -> 
                     viewModel.loginUser(user, pass)
                 },
-                onRegister = { user, email, pass, country ->
-                    viewModel.registerUser(user, email, pass, country)
+                onRegister = { user, disp, email, pass, country ->
+                    viewModel.registerUser(user, disp, email, pass, country)
                 },
                 onDismiss = { 
                     showAuthDialog = false
@@ -211,11 +211,12 @@ fun ProfileDropdownMenu(
 fun AuthDialog(
     viewModel: GameViewModel,
     onLogin: (String, String) -> Unit,
-    onRegister: (String, String, String, String) -> Unit,
+    onRegister: (String, String, String, String, String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var isRegistering by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf(viewModel.cachedUsername) }
+    var displayName by remember { mutableStateOf(viewModel.cachedDisplayName) }
     var email by remember { mutableStateOf(viewModel.cachedEmail) }
     var password by remember { mutableStateOf(viewModel.cachedPassword) }
     var country by remember { mutableStateOf(viewModel.cachedCountry) }
@@ -235,7 +236,7 @@ fun AuthDialog(
                 TextField(
                     value = username,
                     onValueChange = { username = it },
-                    label = { Text("Username") },
+                    label = { Text("Username (Unique ID)") },
                     singleLine = true,
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color(0xFF3B2417),
@@ -245,6 +246,18 @@ fun AuthDialog(
                     )
                 )
                 if (isRegistering) {
+                    TextField(
+                        value = displayName,
+                        onValueChange = { displayName = it },
+                        label = { Text("Display Name (Public)") },
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFF3B2417),
+                            unfocusedContainerColor = Color(0xFF3B2417),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
                     TextField(
                         value = email,
                         onValueChange = { email = it },
@@ -316,12 +329,13 @@ fun AuthDialog(
             Button(
                 onClick = {
                     viewModel.cachedUsername = username
+                    viewModel.cachedDisplayName = displayName
                     viewModel.cachedEmail = email
                     viewModel.cachedPassword = password
                     viewModel.cachedCountry = country
 
                     if (isRegistering) {
-                        onRegister(username, email, password, country)
+                        onRegister(username, displayName, email, password, country)
                     } else {
                         onLogin(username, password)
                     }

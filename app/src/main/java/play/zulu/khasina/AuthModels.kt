@@ -7,6 +7,8 @@ data class UserCreate(
     val username: String,
     val email: String,
     val password: String,
+    @SerializedName("display_name")
+    val displayName: String? = null,
     val avatar: String? = null
 )
 
@@ -28,6 +30,8 @@ data class TokenPair(
 data class UserRead(
     val id: UUID,
     val username: String,
+    @SerializedName("display_name")
+    val displayName: String?,
     val email: String,
     val avatar: String?,
     val rating: Int,

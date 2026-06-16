@@ -38,4 +38,11 @@ interface AuthApiService {
         @Header("Authorization") token: String,
         @Body payload: FriendCreate
     ): Response<FriendRead>
+
+    @retrofit2.http.PUT("friends/{requester_id}")
+    suspend fun updateFriendStatus(
+        @Header("Authorization") token: String,
+        @retrofit2.http.Path("requester_id") requesterId: java.util.UUID,
+        @retrofit2.http.Query("status_update") status: String
+    ): Response<FriendRead>
 }

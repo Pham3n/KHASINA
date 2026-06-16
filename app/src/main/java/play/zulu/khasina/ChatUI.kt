@@ -10,7 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,6 +42,7 @@ fun ChatsDropdownMenu(
 ) {
     val officialChats = viewModel.officialChats
     val personalChats = viewModel.personalChats
+    var showMembersDialog by remember { mutableStateOf<ChatItem?>(null) }
 
     Box(
         modifier = Modifier
@@ -103,11 +104,14 @@ fun ChatsDropdownMenu(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     items(officialChats) { chat ->
-                        ChatRow(chat = chat, onClick = { 
-                            viewModel.selectedChat = chat
-                            viewModel.loadChatMessages(chat)
-                            onClose()
-                        })
+                        ChatRow(chat = chat, 
+                            onClick = { 
+                                viewModel.selectedChat = chat
+                                viewModel.loadChatMessages(chat)
+                                onClose()
+                            },
+                            onMembersClick = { showMembersDialog = chat }
+                        )
                     }
                     item {
                         Spacer(modifier = Modifier.height(16.dp))
@@ -120,11 +124,14 @@ fun ChatsDropdownMenu(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     items(personalChats) { chat ->
-                        ChatRow(chat = chat, onClick = { 
-                            viewModel.selectedChat = chat
-                            viewModel.loadChatMessages(chat)
-                            onClose()
-                        })
+                        ChatRow(chat = chat, 
+                            onClick = { 
+                                viewModel.selectedChat = chat
+                                viewModel.loadChatMessages(chat)
+                                onClose()
+                            },
+                            onMembersClick = { showMembersDialog = chat }
+                        )
                     }
                 }
 
@@ -155,11 +162,65 @@ fun ChatsDropdownMenu(
                 }
             }
         }
+
+        if (showMembersDialog != null) {
+            MembersDialog(
+                viewModel = viewModel,
+                chat = showMembersDialog!!,
+                onDismiss = { showMembersDialog = null }
+            )
+        }
     }
 }
 
 @Composable
-fun ChatRow(chat: ChatItem, onClick: () -> Unit) {
+fun MembersDialog(
+    viewModel: GameViewModel,
+    chat: ChatItem,
+    onDismiss: () -> Unit
+) {
+    val rid = chat.roomId ?: return
+    LaunchedEffect(rid) {
+        viewModel.refreshRoomMembers(rid)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF24130C),
+        title = { Text("${chat.title} Members", color = Color(0xFFE7C58A)) },
+        text = {
+            LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                items(viewModel.roomMembers) { member ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { 
+                                viewModel.showUserDetail(member.user_id)
+                                onDismiss()
+                            }
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(modifier = Modifier.size(8.dp).background(if(member.state == "ONLINE") Color.Green else Color.Gray, CircleShape))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(member.displayName ?: member.username ?: member.user_id.toString().take(8), color = Color.White)
+                            if (member.displayName != null) {
+                                Text("@${member.username}", color = Color.Gray, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close", color = Color(0xFFE7C58A)) }
+        }
+    )
+}
+
+@Composable
+fun ChatRow(chat: ChatItem, onClick: () -> Unit, onMembersClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -198,6 +259,14 @@ fun ChatRow(chat: ChatItem, onClick: () -> Unit) {
                     text = chat.subtitle,
                     color = Color(0xFFD8B073),
                     fontSize = 13.sp
+                )
+            }
+
+            IconButton(onClick = onMembersClick) {
+                Icon(
+                    imageVector = Icons.Default.Groups,
+                    contentDescription = null,
+                    tint = Color(0xFFE7C58A)
                 )
             }
 

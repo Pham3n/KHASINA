@@ -256,10 +256,21 @@ fun FriendRow(viewModel: GameViewModel, friend: FriendRead, onClose: () -> Unit)
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = friend.status,
+                text = if (friend.status == "PENDING" && friend.friend_id == viewModel.currentUserData?.id) "Incoming Request" else friend.status,
                 color = if (friend.status == "ACCEPTED") Color.Green else Color.Yellow,
                 fontSize = 13.sp
             )
+        }
+
+        if (friend.status == "PENDING" && friend.friend_id == viewModel.currentUserData?.id) {
+            Button(
+                onClick = { viewModel.acceptFriendRequest(friend.user_id) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF476B2D)),
+                modifier = Modifier.height(32.dp).padding(horizontal = 4.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp)
+            ) {
+                Text("Accept", fontSize = 11.sp)
+            }
         }
 
         IconButton(onClick = { 

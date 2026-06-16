@@ -12,6 +12,7 @@
 - **Range**: `192.168.8.100` to `105`
 - **Discovery**: Dynamic scanning of above range via `/identity` endpoint.
 - **Ports**: 8000 (Auth), 8001 (Chat), 8002 (Game)
+- **Startup**: Run `powershell -File "C:\Users\phamen\Documents\PlayZulu 2\start_servers.ps1"` to activate all microservices.
 
 ## Data Models
 - **User**: `id (UUID)`, `username`, `email`, `rating`
