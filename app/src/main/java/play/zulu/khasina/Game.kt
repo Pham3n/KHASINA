@@ -34,7 +34,7 @@ data class Card(val rank: Int, val suit: Suit) {
 }
 
 data class Construction(
-    val ownerId: String, 
+    val ownerIndex: Int, 
     val targetValue: Int,
     val cards: SnapshotStateList<Card> = mutableStateListOf()
 ) {
@@ -45,8 +45,8 @@ class GameEngine(val playerCount: Int = 2) {
     val deck = mutableListOf<Card>()
     val hands = List(playerCount) { mutableStateListOf<Card>() }
     val floor = mutableStateListOf<Card>()
-    // Team 0: Players 0 and 2. Team 1: Players 1 and 3.
-    val teamStacks = List(2) { mutableStateListOf<Card>() }
+    // Individual stacks for each player
+    val privateStacks = List(playerCount) { mutableStateListOf<Card>() }
     
     val constructions = mutableStateListOf<Construction>()
     
@@ -56,9 +56,7 @@ class GameEngine(val playerCount: Int = 2) {
 
     // Helper properties for UI (Local Player is Index 0)
     val playerHand: SnapshotStateList<Card> get() = hands[0]
-    val aiHand: SnapshotStateList<Card> get() = if (playerCount > 1) hands[1] else mutableStateListOf()
-    val playerStack: SnapshotStateList<Card> get() = teamStacks[0]
-    val aiStack: SnapshotStateList<Card> get() = teamStacks[1]
+    val playerStack: SnapshotStateList<Card> get() = privateStacks[0]
     val isPlayerTurn: Boolean get() = currentPlayerIndex == 0
 
     init {
@@ -67,7 +65,7 @@ class GameEngine(val playerCount: Int = 2) {
 
     fun setupGame() {
         val allCards = mutableListOf<Card>()
-        for (suit in Suit.values()) {
+        for (suit in Suit.entries) {
             for (rank in 1..10) {
                 allCards.add(Card(rank, suit))
             }
@@ -77,7 +75,7 @@ class GameEngine(val playerCount: Int = 2) {
         deck.addAll(allCards)
         constructions.clear()
         floor.clear()
-        teamStacks.forEach { it.clear() }
+        privateStacks.forEach { it.clear() }
         hands.forEach { it.clear() }
         
         deal()
@@ -86,123 +84,144 @@ class GameEngine(val playerCount: Int = 2) {
     }
 
     fun deal() {
-        val cardsToDeal = if (playerCount == 2) 10 else 4 // In 4 players, deal 4 initially and 4 each round
-        repeat(cardsToDeal) {
-            for (i in 0 until playerCount) {
-                if (deck.isNotEmpty()) hands[i].add(deck.removeAt(0))
+        if (playerCount == 4) {
+            // Deal all 40 cards initially
+            repeat(10) {
+                for (i in 0 until 4) {
+                    if (deck.isNotEmpty()) hands[i].add(deck.removeAt(0))
+                }
+            }
+        } else {
+            // 2 player: 10 each
+            repeat(10) {
+                for (i in 0 until 2) {
+                    if (deck.isNotEmpty()) hands[i].add(deck.removeAt(0))
+                }
             }
         }
-        // Initially deal 4 to the floor if it's empty
+        // Deal 4 to the floor initially if empty
         if (floor.isEmpty() && deck.isNotEmpty()) {
             repeat(4) { if (deck.isNotEmpty()) floor.add(deck.removeAt(0)) }
         }
     }
 
-    fun executeManualPlay(
+    private fun checkDisassemble(playerIndex: Int, playedCard: Card) {
+        val myConstruction = constructions.find { it.ownerIndex == playerIndex } ?: return
+        if (playedCard.value == myConstruction.targetValue) {
+            val remainingInHand = hands[playerIndex].count { it.value == myConstruction.targetValue }
+            if (remainingInHand == 0) {
+                floor.addAll(myConstruction.cards)
+                constructions.remove(myConstruction)
+            }
+        }
+    }
+
+    fun executePlay(playedCard: Card, playerIndex: Int) {
+        hands[playerIndex].remove(playedCard)
+        checkDisassemble(playerIndex, playedCard)
+        floor.add(playedCard)
+        nextTurn()
+    }
+
+    fun executeBuild(
         playedCard: Card,
         selectedFloorCards: List<Card>,
         selectedConstructions: List<Construction>,
         recoveredOpponentCard: Card?,
-        playerIndex: Int,
-        isCapture: Boolean
+        playerIndex: Int
     ): Boolean {
         val hand = hands[playerIndex]
-        val teamIndex = playerIndex % 2
-        val stack = teamStacks[teamIndex]
-        val opponentStack = teamStacks[1 - teamIndex]
-        val ownerId = "Player$playerIndex"
+        val partnerIndex = if (playerCount == 4) (playerIndex + 2) % 4 else -1
+        
+        val floorVal = selectedFloorCards.sumOf { it.value }
+        val constructVal = selectedConstructions.sumOf { it.targetValue }
+        val oppVal = recoveredOpponentCard?.value ?: 0
+        val totalSelectedValue = floorVal + constructVal + oppVal
+        val sum = totalSelectedValue + playedCard.value
 
-        if (!hand.contains(playedCard)) return false
+        var targetConstruction = constructions.find { it.ownerIndex == playerIndex }
+        if (targetConstruction == null && partnerIndex != -1) {
+            targetConstruction = constructions.find { it.ownerIndex == partnerIndex }
+        }
 
+        val targetValue = if (targetConstruction != null) {
+            targetConstruction.targetValue
+        } else {
+            val remainingHand = hand.toMutableList().apply { remove(playedCard) }
+            remainingHand.map { it.value }.distinct()
+                .filter { sum % it == 0 }
+                .maxOrNull() ?: -1
+        }
+
+        val hasTargetInHand = (hand.toMutableList().apply { remove(playedCard) }).any { it.value == targetValue }
+
+        if (targetValue > 0 && hasTargetInHand && sum % targetValue == 0) {
+            if (targetConstruction == null) {
+                targetConstruction = Construction(playerIndex, targetValue)
+                constructions.add(targetConstruction)
+            }
+
+            targetConstruction.cards.addAll(selectedFloorCards)
+            selectedConstructions.forEach { 
+                if (it != targetConstruction) {
+                    targetConstruction!!.cards.addAll(it.cards)
+                    constructions.remove(it)
+                }
+            }
+            if (recoveredOpponentCard != null) {
+                targetConstruction.cards.add(recoveredOpponentCard)
+                privateStacks.forEach { it.remove(recoveredOpponentCard) }
+            }
+            targetConstruction.cards.add(playedCard)
+            floor.removeAll(selectedFloorCards)
+            hand.remove(playedCard)
+            return true
+        }
+
+        executePlay(playedCard, playerIndex)
+        return false
+    }
+
+    fun executeCapture(
+        playedCard: Card,
+        selectedFloorCards: List<Card>,
+        selectedConstructions: List<Construction>,
+        recoveredOpponentCard: Card?,
+        playerIndex: Int
+    ): Boolean {
         val floorVal = selectedFloorCards.sumOf { it.value }
         val constructVal = selectedConstructions.sumOf { it.targetValue }
         val oppVal = recoveredOpponentCard?.value ?: 0
         val totalSelectedValue = floorVal + constructVal + oppVal
 
-        if (isCapture) {
-            if (totalSelectedValue > 0 && totalSelectedValue % playedCard.value == 0) {
-                if (selectedConstructions.any { it.targetValue != playedCard.value }) return false
+        if (totalSelectedValue > 0 && totalSelectedValue % playedCard.value == 0) {
+            if (selectedConstructions.any { it.targetValue != playedCard.value }) return false
 
-                val allCardsToCapture = mutableListOf<Card>()
-                allCardsToCapture.addAll(selectedFloorCards)
-                selectedConstructions.forEach { allCardsToCapture.addAll(it.cards) }
-                if (recoveredOpponentCard != null) {
-                    allCardsToCapture.add(recoveredOpponentCard)
-                    opponentStack.remove(recoveredOpponentCard)
-                }
-                
-                stack.addAll(allCardsToCapture.sortedByDescending { it.value })
-                stack.add(playedCard)
-                
-                floor.removeAll(selectedFloorCards)
-                constructions.removeAll(selectedConstructions)
-                hand.remove(playedCard)
-                checkEndOfRound()
-                return true
+            val stack = privateStacks[playerIndex]
+            val allCardsToCapture = mutableListOf<Card>()
+            allCardsToCapture.addAll(selectedFloorCards)
+            selectedConstructions.forEach { allCardsToCapture.addAll(it.cards) }
+            if (recoveredOpponentCard != null) {
+                allCardsToCapture.add(recoveredOpponentCard)
+                privateStacks.forEach { it.remove(recoveredOpponentCard) }
             }
-        } else {
-            var myExisting = constructions.find { it.ownerId == ownerId }
-            val sum = totalSelectedValue + playedCard.value
             
-            val targetValue = if (myExisting != null) {
-                myExisting.targetValue
-            } else {
-                val remainingHandCards = hand.toMutableList()
-                remainingHandCards.remove(playedCard)
-                remainingHandCards.map { it.value }.distinct()
-                    .filter { sum % it == 0 }
-                    .maxOrNull() ?: -1 
-            }
-
-            val remainingHand = hand.toMutableList()
-            remainingHand.remove(playedCard)
-            val hasTargetInHand = remainingHand.any { it.value == targetValue }
-
-            if (targetValue > 0 && hasTargetInHand && sum % targetValue == 0) {
-                if (myExisting == null) {
-                    myExisting = Construction(ownerId, targetValue)
-                    constructions.add(myExisting)
-                }
-                
-                myExisting.cards.addAll(selectedFloorCards)
-                selectedConstructions.forEach { 
-                    if (it != myExisting) {
-                        myExisting!!.cards.addAll(it.cards)
-                        constructions.remove(it)
-                    }
-                }
-                if (recoveredOpponentCard != null) {
-                    myExisting.cards.add(recoveredOpponentCard)
-                    opponentStack.remove(recoveredOpponentCard)
-                }
-                myExisting.cards.add(playedCard)
-                
-                floor.removeAll(selectedFloorCards)
-                hand.remove(playedCard)
-                checkEndOfRound()
-                return true
-            }
+            stack.addAll(allCardsToCapture)
+            stack.add(playedCard)
+            
+            floor.removeAll(selectedFloorCards)
+            constructions.removeAll(selectedConstructions)
+            hands[playerIndex].remove(playedCard)
+            return true
         }
 
-        // Invalid or simple throw
-        hand.remove(playedCard)
-        floor.add(playedCard)
-        nextTurn()
-        checkEndOfRound()
         return false
     }
 
     fun nextTurn() {
         if (!gameOver) {
             currentPlayerIndex = (currentPlayerIndex + 1) % playerCount
-        }
-    }
-
-    private fun checkEndOfRound() {
-        if (hands.all { it.isEmpty() }) {
-            if (deck.isNotEmpty()) {
-                deal()
-            } else {
+            if (hands.all { it.isEmpty() } && deck.isEmpty()) {
                 gameOver = true
             }
         }
@@ -210,17 +229,14 @@ class GameEngine(val playerCount: Int = 2) {
 
     fun playCard(card: Card, playerIndex: Int): Boolean {
         val hand = hands[playerIndex]
-        val teamIndex = playerIndex % 2
-        val stack = teamStacks[teamIndex]
         if (!hand.contains(card)) return false
         val captured = findCapture(card, floor)
         if (captured.isNotEmpty()) {
-            stack.addAll(captured.sortedByDescending { it.value })
-            stack.add(card)
+            privateStacks[playerIndex].addAll(captured)
+            privateStacks[playerIndex].add(card)
             floor.removeAll(captured)
         } else floor.add(card)
         hand.remove(card)
-        checkEndOfRound()
         nextTurn()
         return true
     }
@@ -253,17 +269,25 @@ class GameEngine(val playerCount: Int = 2) {
 
     fun calculateScores(): Map<String, Int> {
         val scores = mutableMapOf<String, Int>()
-        for (i in 0..1) {
-            val stack = teamStacks[i]
-            var score = stack.sumOf { it.points }
-            val spades = stack.count { it.suit == Suit.SPADES }
-            if (spades >= 6) score += 1
-            scores["Team$i"] = score
+        if (playerCount == 4) {
+            val team0Stack = privateStacks[0] + privateStacks[2]
+            val team1Stack = privateStacks[1] + privateStacks[3]
+            var s0 = team0Stack.sumOf { it.points }
+            var s1 = team1Stack.sumOf { it.points }
+            if (team0Stack.size > team1Stack.size) s0 += 1 else if (team1Stack.size > team0Stack.size) s1 += 1
+            if (team0Stack.count { it.suit == Suit.SPADES } >= 6) s0 += 1
+            if (team1Stack.count { it.suit == Suit.SPADES } >= 6) s1 += 1
+            scores["Team0"] = s0
+            scores["Team1"] = s1
+        } else {
+            var s0 = privateStacks[0].sumOf { it.points }
+            var s1 = privateStacks[1].sumOf { it.points }
+            if (privateStacks[0].size > privateStacks[1].size) s0 += 1 else if (privateStacks[1].size > privateStacks[0].size) s1 += 1
+            if (privateStacks[0].count { it.suit == Suit.SPADES } >= 6) s0 += 1
+            if (privateStacks[1].count { it.suit == Suit.SPADES } >= 6) s1 += 1
+            scores["Player"] = s0
+            scores["AI"] = s1
         }
-        // Most cards bonus
-        if (teamStacks[0].size > teamStacks[1].size) scores["Team0"] = scores["Team0"]!! + 1
-        else if (teamStacks[1].size > teamStacks[0].size) scores["Team1"] = scores["Team1"]!! + 1
-        
         return scores
     }
 
@@ -272,23 +296,21 @@ class GameEngine(val playerCount: Int = 2) {
         floor.clear(); floor.addAll(state.floor)
         currentPlayerIndex = state.currentPlayerIndex
         gameOver = state.gameOver
-        
         for (i in 0 until playerCount) {
             if (i < state.hands.size) {
                 hands[i].clear()
                 hands[i].addAll(state.hands[i])
             }
-        }
-        for (i in 0 until 2) {
             if (i < state.teamStacks.size) {
-                teamStacks[i].clear()
-                teamStacks[i].addAll(state.teamStacks[i])
+                privateStacks[i].clear()
+                privateStacks[i].addAll(state.teamStacks[i])
             }
         }
-
         constructions.clear()
         state.constructions.forEach { cs ->
-            val c = Construction(cs.ownerId, cs.targetValue)
+            val ownerIdParts = cs.ownerId.removePrefix("Player")
+            val idx = ownerIdParts.toIntOrNull() ?: 0
+            val c = Construction(idx, cs.targetValue)
             c.cards.addAll(cs.cards)
             constructions.add(c)
         }
@@ -299,8 +321,8 @@ class GameEngine(val playerCount: Int = 2) {
             deck = deck.toList(),
             hands = hands.map { it.toList() },
             floor = floor.toList(),
-            teamStacks = teamStacks.map { it.toList() },
-            constructions = constructions.map { ConstructionState(it.ownerId, it.targetValue, it.cards.toList()) },
+            teamStacks = privateStacks.map { it.toList() },
+            constructions = constructions.map { ConstructionState("Player${it.ownerIndex}", it.targetValue, it.cards.toList()) },
             currentPlayerIndex = currentPlayerIndex,
             gameOver = gameOver,
             playerCount = playerCount

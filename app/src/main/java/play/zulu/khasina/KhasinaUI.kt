@@ -96,7 +96,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                             constructions = engine.constructions,
                             selectedConstructions = viewModel.selectedConstructions,
                             onConstructionClick = { viewModel.onConstructionClicked(it) },
-                            isMultiplayer = viewModel.isMultiplayer
+                            playerCount = engine.playerCount
                         )
                     }
                 }
@@ -137,7 +137,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                     }
 
                     SideInfoCard(title = "MODE", content = if (viewModel.isMultiplayer) "ONLINE" else "LOCAL")
-                    SideInfoCard(title = "TEAM 0", content = "${engine.teamStacks[0].size} Cards")
+                    SideInfoCard(title = "PRIVATE STACK", content = "${engine.privateStacks[0].size} Cards")
                 }
             }
 
@@ -154,6 +154,11 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
 
             // ===== ACTION BUTTONS =====
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                GameActionButton(
+                    text = "PLAY",
+                    enabled = (viewModel.selectedCardHand != null) && engine.currentPlayerIndex == 0 && !engine.gameOver
+                ) { viewModel.onPlayClicked() }
+
                 GameActionButton(
                     text = "CAPTURE",
                     enabled = (viewModel.selectedCardHand != null) && engine.currentPlayerIndex == 0 && !engine.gameOver
@@ -186,7 +191,7 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                         cardsRemaining = engine.hands[index].size,
                         score = scores["Team$teamIndex"] ?: 0,
                         isTop = index != 0,
-                        topStackCard = engine.teamStacks[teamIndex].lastOrNull(),
+                        topStackCard = engine.privateStacks[index].lastOrNull(),
                         isSelected = index == 1 && viewModel.selectedOpponentStackCard != null,
                         onClick = { if (index == 1) viewModel.onOpponentStackClicked() }
                     )
@@ -318,14 +323,11 @@ fun ConstructionSection(
     constructions: List<Construction>,
     selectedConstructions: List<Construction>,
     onConstructionClick: (Construction) -> Unit,
-    isMultiplayer: Boolean
+    playerCount: Int
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        val slots = if (isMultiplayer) 2 else 1
-        repeat(slots) { index ->
-            val construction = constructions.find { c -> 
-                if (index == 0) c.ownerId == "Player" else c.ownerId != "Player"
-            }
+        repeat(playerCount) { index ->
+            val construction = constructions.find { it.ownerIndex == index }
             if (construction != null) {
                 construction.topCard?.let { card ->
                     PlayingCard(
