@@ -46,6 +46,9 @@ class UserStorage(context: Context) {
     fun getServerPort(): Int = prefs.getInt("server_port", 8000)
     fun setServerPort(port: Int) = prefs.edit().putInt("server_port", port).apply()
 
+    fun isConnectionEnabled(): Boolean = prefs.getBoolean("connection_enabled", true)
+    fun setConnectionEnabled(enabled: Boolean) = prefs.edit().putBoolean("connection_enabled", enabled).apply()
+
     // Chat Persistence
     fun saveChatRooms(rooms: List<ChatRoomRead>) {
         prefs.edit().putString("cached_rooms", gson.toJson(rooms)).apply()

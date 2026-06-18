@@ -12,7 +12,8 @@ import kotlinx.coroutines.withContext
 
 class OnlineService(
     private val onConnected: () -> Unit,
-    private val onReceived: (String) -> Unit
+    private val onReceived: (String) -> Unit,
+    private val onFailed: (() -> Unit)? = null
 ) {
     private var clientThread: ClientThread? = null
     private var connectedThread: ConnectedThread? = null
@@ -65,10 +66,10 @@ class OnlineService(
         override fun run() {
             try {
                 socket = Socket()
-                socket?.connect(InetSocketAddress(ipAddress, port), 2000)
+                socket?.connect(InetSocketAddress(ipAddress, port), 3000)
                 socket?.let { manageConnectedSocket(it) }
             } catch (e: IOException) {
-                e.printStackTrace()
+                onFailed?.invoke()
             }
         }
 

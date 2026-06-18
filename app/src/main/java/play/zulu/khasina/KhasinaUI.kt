@@ -283,17 +283,15 @@ fun UserDetailDialog(
                 if (user.id != viewModel.currentUserData?.id) {
                     Button(
                         onClick = {
-                            viewModel.initiateOnlineMatch(user.id.toString())
+                            viewModel.inviteToMatch(user)
                             onDismiss()
-                            viewModel.isProfileVisible = false
-                            viewModel.isChatVisible = false
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5E3C))
                     ) {
-                        Icon(Icons.Default.SportsEsports, null)
+                        Icon(Icons.Default.GroupAdd, null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("CHALLENGE")
+                        Text("INVITE TO MATCH")
                     }
                 }
             }
