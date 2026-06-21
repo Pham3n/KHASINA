@@ -106,10 +106,17 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                 // ===== SIDE PANEL =====
                 Column(modifier = Modifier.width(130.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SideInfoCard(
+                        title = "ROUND",
+                        content = "${viewModel.currentRound} / ${viewModel.maxRounds}"
+                    )
+                    
+                    SideInfoCard(
                         title = "TURN",
-                        content = if (engine.gameOver) "GAME OVER" 
+                        content = if (viewModel.engine.gameOver && viewModel.currentRound >= viewModel.maxRounds) "GAME OVER" 
+                                  else if (viewModel.engine.gameOver) "ROUND OVER"
                                   else if (viewModel.isMultiStagePlayActive) "STAGE..."
                                   else if (engine.currentPlayerIndex == 0) "YOU" 
+                                  else if (engine.playerCount == 2 && viewModel.isLocalAiEnabled) "AI"
                                   else if (engine.playerCount == 2) "OPPONENT"
                                   else "PLAYER ${engine.currentPlayerIndex}"
                     )
@@ -185,11 +192,16 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
             ) {
                 items(engine.playerCount) { index ->
                     val teamIndex = index % 2
+                    val currentRoundScore = scores["Team$teamIndex"] ?: 0
+                    val totalScore = viewModel.cumulativeScores[teamIndex] + currentRoundScore
+                    
                     PlayerHandPanel(
                         modifier = Modifier.width(160.dp),
-                        name = if (index == 0) "You" else "Player $index",
+                        name = if (index == 0) "You" 
+                               else if (index == 1 && viewModel.isLocalAiEnabled && !viewModel.isMultiplayer) "AI"
+                               else "Player $index",
                         cardsRemaining = engine.hands[index].size,
-                        score = scores["Team$teamIndex"] ?: 0,
+                        score = totalScore,
                         isTop = index != 0,
                         topStackCard = engine.privateStacks[index].lastOrNull(),
                         isSelected = index == 1 && viewModel.selectedOpponentStackCard != null,

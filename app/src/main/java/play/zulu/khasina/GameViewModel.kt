@@ -51,6 +51,14 @@ class GameViewModel : ViewModel() {
     var isUserDetailVisible by mutableStateOf(false)
     var floatingMessage by mutableStateOf<String?>(null)
     
+    // Invitation & AI Logic
+    var incomingInvitation by mutableStateOf<GameSessionRead?>(null)
+    var isLocalAiEnabled by mutableStateOf(true)
+
+    var currentRound by mutableStateOf(1)
+    val maxRounds = 2
+    val cumulativeScores = mutableStateListOf(0, 0) // Team 0, Team 1
+
     var selectedUserForProfile by mutableStateOf<UserRead?>(null)
     val matchLobbyPlayers = mutableStateListOf<UserRead>()
 
@@ -246,7 +254,10 @@ class GameViewModel : ViewModel() {
 
     fun disconnect() {
         gameService.stop(); isMultiplayer = false; isHost = false; connectionType = null
-        resetLocalGame(); engine.useAI = true
+        activeSessionId = null
+        resetLocalGame()
+        engine.useAI = isLocalAiEnabled
+        lastMessage = "Returned to Local Play."
     }
 
     fun getPairedDevices(): List<android.bluetooth.BluetoothDevice> {
@@ -285,8 +296,14 @@ class GameViewModel : ViewModel() {
     fun onPlayClicked() {
         if (engine.gameOver) return
         val card = selectedCardHand ?: return 
-        engine.executePlay(card, 0); clearSelections()
-        if (isMultiplayer && activeSessionId != null) { sendGameAction("PLAY", mapOf("card" to card)); sendGameAction("SYNC", mapOf("state" to engine.exportState())) }
+        engine.executePlay(card, 0)
+        clearSelections()
+        if (isMultiplayer && activeSessionId != null) { 
+            sendGameAction("PLAY", mapOf("card" to card))
+            sendGameAction("SYNC", mapOf("state" to engine.exportState())) 
+        } else {
+            finalizeTurn()
+        }
     }
 
     fun onBuildClicked() {
@@ -295,9 +312,17 @@ class GameViewModel : ViewModel() {
         val success = engine.executeBuild(card, selectedCardsFloor.toList(), selectedConstructions.toList(), selectedOpponentStackCard, 0)
         clearSelections()
         if (success) {
-            isMultiStagePlayActive = true; if (isMultiplayer && activeSessionId != null) sendGameAction("BUILD", mapOf("card" to card))
+            isMultiStagePlayActive = true
+            if (isMultiplayer && activeSessionId != null) sendGameAction("BUILD", mapOf("card" to card))
             startMultiStageTimer()
-        } else if (isMultiplayer && activeSessionId != null) { sendGameAction("PLAY", mapOf("card" to card)); sendGameAction("SYNC", mapOf("state" to engine.exportState())) }
+        } else {
+            if (isMultiplayer && activeSessionId != null) {
+                sendGameAction("PLAY", mapOf("card" to card))
+                sendGameAction("SYNC", mapOf("state" to engine.exportState()))
+            } else {
+                finalizeTurn()
+            }
+        }
     }
 
     fun onCaptureClicked() {
@@ -305,26 +330,95 @@ class GameViewModel : ViewModel() {
         val card = selectedCardHand ?: return 
         val success = engine.executeCapture(card, selectedCardsFloor.toList(), selectedConstructions.toList(), selectedOpponentStackCard, 0)
         if (success) {
-            clearSelections(); isMultiStagePlayActive = true; captureRetriesRemaining = 1
+            clearSelections()
+            isMultiStagePlayActive = true
+            captureRetriesRemaining = 1
             if (isMultiplayer && activeSessionId != null) sendGameAction("CAPTURE", mapOf("card" to card))
             startMultiStageTimer()
         } else {
-            if (captureRetriesRemaining > 0) { captureRetriesRemaining--; showFloatingMessage("Invalid Capture! One chance to correct.") }
-            else {
-                engine.executePlay(card, 0); clearSelections(); captureRetriesRemaining = 1
-                if (isMultiplayer && activeSessionId != null) { sendGameAction("PLAY", mapOf("card" to card)); sendGameAction("SYNC", mapOf("state" to engine.exportState())) }
+            if (captureRetriesRemaining > 0) {
+                captureRetriesRemaining--
+                showFloatingMessage("Invalid Capture! One chance to correct.")
+            } else {
+                engine.executePlay(card, 0)
+                clearSelections()
+                captureRetriesRemaining = 1
+                if (isMultiplayer && activeSessionId != null) {
+                    sendGameAction("PLAY", mapOf("card" to card))
+                    sendGameAction("SYNC", mapOf("state" to engine.exportState()))
+                } else {
+                    finalizeTurn()
+                }
             }
+        }
+    }
+
+    private fun finalizeTurn() {
+        if (engine.gameOver) {
+            checkRoundEnd()
+        } else if (isLocalAiEnabled && engine.currentPlayerIndex != 0) {
+            triggerAiTurn()
+        }
+    }
+
+    private fun triggerAiTurn() {
+        viewModelScope.launch {
+            lastMessage = "AI Thinking..."
+            delay(2000)
+            val hand = engine.hands[engine.currentPlayerIndex]
+            if (hand.isNotEmpty()) {
+                engine.playCard(hand.random(), engine.currentPlayerIndex)
+            }
+            if (engine.gameOver) {
+                checkRoundEnd()
+            } else {
+                lastMessage = "YOUR TURN"
+            }
+        }
+    }
+
+    private fun checkRoundEnd() {
+        if (!engine.gameOver) return
+        
+        val roundScores = engine.calculateScores()
+        cumulativeScores[0] += roundScores["Team0"] ?: 0
+        cumulativeScores[1] += roundScores["Team1"] ?: 0
+
+        if (currentRound < maxRounds) {
+            viewModelScope.launch {
+                lastMessage = "ROUND $currentRound OVER"
+                delay(3000)
+                currentRound++
+                val aiWasEnabled = engine.useAI
+                engine = GameEngine(engine.playerCount)
+                engine.useAI = aiWasEnabled
+                lastMessage = "ROUND $currentRound START"
+            }
+        } else {
+            lastMessage = "GAME OVER"
         }
     }
 
     private fun startMultiStageTimer() {
         turnTimerJob?.cancel()
-        turnTimerJob = viewModelScope.launch { lastMessage = "YOUR TURN (5s)"; delay(5000); endTurn() }
+        turnTimerJob = viewModelScope.launch {
+            lastMessage = "YOUR TURN (5s)"
+            delay(5000)
+            endTurn()
+        }
     }
 
     private fun endTurn() {
-        turnTimerJob?.cancel(); isMultiStagePlayActive = false; engine.nextTurn(); clearSelections(); captureRetriesRemaining = 1
-        if (isMultiplayer && activeSessionId != null) sendGameAction("SYNC", mapOf("state" to engine.exportState()))
+        turnTimerJob?.cancel()
+        isMultiStagePlayActive = false
+        engine.nextTurn()
+        clearSelections()
+        captureRetriesRemaining = 1
+        if (isMultiplayer && activeSessionId != null) {
+            sendGameAction("SYNC", mapOf("state" to engine.exportState()))
+        } else {
+            finalizeTurn()
+        }
     }
 
     private fun sendGameAction(type: String, payload: Map<String, Any>) {
@@ -461,23 +555,35 @@ class GameViewModel : ViewModel() {
             val api = gameApi ?: return@launch
             while (true) {
                 try {
-                    if (!isMultiplayer) {
+                    if (!isMultiplayer && incomingInvitation == null) {
                         val response = api.listMySessions("Bearer $accessToken")
                         if (response.isSuccessful) {
-                            val activeSession = response.body()?.firstOrNull()
-                            if (activeSession != null) {
-                                val pCount = activeSession.players.size
-                                activeSessionId = activeSession.id; isMultiplayer = true; connectionType = ConnectionType.ONLINE
-                                if (engine.playerCount != pCount) engine = GameEngine(pCount)
-                                engine.useAI = false; lastMessage = if (activeSession.current_player_id == currentUserData?.id) "Match joined! Your turn." else "Waiting..."
-                                engine.importState(gson.fromJson(gson.toJson(activeSession.state), GameState::class.java))
-                            }
+                            val session = response.body()?.firstOrNull()
+                            if (session != null) { incomingInvitation = session }
                         }
-                    } else if (activeSessionId != null) { pollGameEvents(activeSessionId!!) }
+                    } else if (isMultiplayer && activeSessionId != null) { pollGameEvents(activeSessionId!!) }
                 } catch (e: Exception) {}
                 delay(3000)
             }
         }
+    }
+
+    fun acceptInvitation() {
+        val session = incomingInvitation ?: return
+        val pCount = session.players.size
+        activeSessionId = session.id
+        isMultiplayer = true
+        connectionType = ConnectionType.ONLINE
+        engine = GameEngine(pCount)
+        engine.useAI = false
+        engine.importState(gson.fromJson(gson.toJson(session.state), GameState::class.java))
+        incomingInvitation = null
+        lastMessage = "Online match joined!"
+    }
+
+    fun declineInvitation() {
+        incomingInvitation = null
+        // Optionally send a decline action to server
     }
 
     private suspend fun pollGameEvents(sessionId: UUID) {
@@ -630,8 +736,11 @@ class GameViewModel : ViewModel() {
     }
 
     private fun resetLocalGame() {
-        val currentUseAi = engine.useAI
-        engine = GameEngine(engine.playerCount)
+        val currentUseAi = isLocalAiEnabled
+        currentRound = 1
+        cumulativeScores[0] = 0
+        cumulativeScores[1] = 0
+        engine = GameEngine(2)
         engine.useAI = currentUseAi; clearSelections(); isMultiStagePlayActive = false; turnTimerJob?.cancel()
     }
 

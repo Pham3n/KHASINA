@@ -269,25 +269,18 @@ class GameEngine(val playerCount: Int = 2) {
 
     fun calculateScores(): Map<String, Int> {
         val scores = mutableMapOf<String, Int>()
-        if (playerCount == 4) {
-            val team0Stack = privateStacks[0] + privateStacks[2]
-            val team1Stack = privateStacks[1] + privateStacks[3]
-            var s0 = team0Stack.sumOf { it.points }
-            var s1 = team1Stack.sumOf { it.points }
-            if (team0Stack.size > team1Stack.size) s0 += 1 else if (team1Stack.size > team0Stack.size) s1 += 1
-            if (team0Stack.count { it.suit == Suit.SPADES } >= 6) s0 += 1
-            if (team1Stack.count { it.suit == Suit.SPADES } >= 6) s1 += 1
-            scores["Team0"] = s0
-            scores["Team1"] = s1
-        } else {
-            var s0 = privateStacks[0].sumOf { it.points }
-            var s1 = privateStacks[1].sumOf { it.points }
-            if (privateStacks[0].size > privateStacks[1].size) s0 += 1 else if (privateStacks[1].size > privateStacks[0].size) s1 += 1
-            if (privateStacks[0].count { it.suit == Suit.SPADES } >= 6) s0 += 1
-            if (privateStacks[1].count { it.suit == Suit.SPADES } >= 6) s1 += 1
-            scores["Player"] = s0
-            scores["AI"] = s1
-        }
+        val team0Stack = if (playerCount == 4) privateStacks[0] + privateStacks[2] else privateStacks[0]
+        val team1Stack = if (playerCount == 4) privateStacks[1] + privateStacks[3] else privateStacks[1]
+        
+        var s0 = team0Stack.sumOf { it.points }
+        var s1 = team1Stack.sumOf { it.points }
+        
+        if (team0Stack.size > team1Stack.size) s0 += 1 else if (team1Stack.size > team0Stack.size) s1 += 1
+        if (team0Stack.count { it.suit == Suit.SPADES } >= 6) s0 += 1
+        if (team1Stack.count { it.suit == Suit.SPADES } >= 6) s1 += 1
+        
+        scores["Team0"] = s0
+        scores["Team1"] = s1
         return scores
     }
 
