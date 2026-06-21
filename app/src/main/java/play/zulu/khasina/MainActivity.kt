@@ -155,6 +155,7 @@ fun StatusSection(viewModel: GameViewModel) {
 @Composable
 fun SidebarContent(viewModel: GameViewModel, checkAndRun: (Array<String>, () -> Unit) -> Unit, onActionStarted: () -> Unit) {
     var expandedMode by remember { mutableStateOf<GameViewModel.ConnectionType?>(null) }
+    var localExpanded by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(modifier = Modifier.fillMaxHeight().width(280.dp).padding(24.dp)) {
@@ -166,8 +167,28 @@ fun SidebarContent(viewModel: GameViewModel, checkAndRun: (Array<String>, () -> 
         HorizontalDivider(color = Color(0xFF5A3822), thickness = 1.dp)
         Spacer(modifier = Modifier.height(16.dp))
 
-        ModeItem(title = "LOCAL PLAY", icon = Icons.Default.Person, isSelected = !viewModel.isMultiplayer, onClick = { viewModel.disconnect(); expandedMode = null; onActionStarted() })
-        ModeItem(title = "BLUETOOTH", icon = Icons.Default.Bluetooth, isSelected = viewModel.isMultiplayer && viewModel.connectionType == GameViewModel.ConnectionType.BLUETOOTH, onClick = { expandedMode = if (expandedMode == GameViewModel.ConnectionType.BLUETOOTH) null else GameViewModel.ConnectionType.BLUETOOTH })
+        ModeItem(title = "LOCAL PLAY", icon = Icons.Default.Person, isSelected = !viewModel.isMultiplayer, onClick = { localExpanded = !localExpanded; expandedMode = null })
+        AnimatedVisibility(visible = localExpanded) {
+            Column(modifier = Modifier.padding(start = 32.dp)) {
+                SubModeItem(if (viewModel.isLocalAiEnabled && !viewModel.isMultiplayer) "• VS AI" else "VS AI") {
+                    viewModel.disconnect()
+                    viewModel.isLocalAiEnabled = true
+                    viewModel.engine.useAI = true
+                    onActionStarted()
+                }
+                SubModeItem(if (!viewModel.isLocalAiEnabled && !viewModel.isMultiplayer) "• VS FRIEND" else "VS FRIEND") {
+                    viewModel.disconnect()
+                    viewModel.isLocalAiEnabled = false
+                    viewModel.engine.useAI = false
+                    onActionStarted()
+                }
+            }
+        }
+        
+        // I need a way to distinguish between connection types and "Local" in expandedMode. 
+        // Let's use a local state for the sidebar expansion of "Local Play" specifically or use a dummy ConnectionType if needed.
+        // Better yet, let's just use a dedicated boolean for local expansion since ConnectionType is an enum.
+        ModeItem(title = "BLUETOOTH", icon = Icons.Default.Bluetooth, isSelected = viewModel.isMultiplayer && viewModel.connectionType == GameViewModel.ConnectionType.BLUETOOTH, onClick = { localExpanded = false; expandedMode = if (expandedMode == GameViewModel.ConnectionType.BLUETOOTH) null else GameViewModel.ConnectionType.BLUETOOTH })
         AnimatedVisibility(visible = expandedMode == GameViewModel.ConnectionType.BLUETOOTH) {
             Column(modifier = Modifier.padding(start = 32.dp)) {
                 SubModeItem("Host Game") {
@@ -187,7 +208,7 @@ fun SidebarContent(viewModel: GameViewModel, checkAndRun: (Array<String>, () -> 
             }
         }
 
-        ModeItem(title = "WIFI (LAN)", icon = Icons.Default.Wifi, isSelected = viewModel.isMultiplayer && viewModel.connectionType == GameViewModel.ConnectionType.LAN, onClick = { expandedMode = if (expandedMode == GameViewModel.ConnectionType.LAN) null else GameViewModel.ConnectionType.LAN })
+        ModeItem(title = "WIFI (LAN)", icon = Icons.Default.Wifi, isSelected = viewModel.isMultiplayer && viewModel.connectionType == GameViewModel.ConnectionType.LAN, onClick = { localExpanded = false; expandedMode = if (expandedMode == GameViewModel.ConnectionType.LAN) null else GameViewModel.ConnectionType.LAN })
         AnimatedVisibility(visible = expandedMode == GameViewModel.ConnectionType.LAN) {
             Column(modifier = Modifier.padding(start = 32.dp)) {
                 SubModeItem("Host Game") { viewModel.startHosting(GameViewModel.ConnectionType.LAN); onActionStarted() }
@@ -197,7 +218,7 @@ fun SidebarContent(viewModel: GameViewModel, checkAndRun: (Array<String>, () -> 
             }
         }
 
-        ModeItem(title = "ONLINE PLAY", icon = Icons.Default.Public, isSelected = viewModel.isMultiplayer && viewModel.connectionType == GameViewModel.ConnectionType.ONLINE, onClick = { expandedMode = if (expandedMode == GameViewModel.ConnectionType.ONLINE) null else GameViewModel.ConnectionType.ONLINE; if (expandedMode == GameViewModel.ConnectionType.ONLINE) { viewModel.refreshOnlinePlayers(); viewModel.refreshFriends() } })
+        ModeItem(title = "ONLINE PLAY", icon = Icons.Default.Public, isSelected = viewModel.isMultiplayer && viewModel.connectionType == GameViewModel.ConnectionType.ONLINE, onClick = { localExpanded = false; expandedMode = if (expandedMode == GameViewModel.ConnectionType.ONLINE) null else GameViewModel.ConnectionType.ONLINE; if (expandedMode == GameViewModel.ConnectionType.ONLINE) { viewModel.refreshOnlinePlayers(); viewModel.refreshFriends() } })
         AnimatedVisibility(visible = expandedMode == GameViewModel.ConnectionType.ONLINE) {
             Column(modifier = Modifier.padding(start = 24.dp)) {
                 if (!viewModel.isConnectedToServer) { Text("Log in to see players", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp, modifier = Modifier.padding(8.dp)) }

@@ -116,7 +116,8 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                                   else if (viewModel.engine.gameOver) "ROUND OVER"
                                   else if (viewModel.isMultiStagePlayActive) "STAGE..."
                                   else if (engine.currentPlayerIndex == 0) "YOU" 
-                                  else if (engine.playerCount == 2 && viewModel.isLocalAiEnabled) "AI"
+                                  else if (engine.playerCount == 2 && viewModel.isLocalAiEnabled && !viewModel.isMultiplayer) "AI"
+                                  else if (engine.playerCount == 2 && !viewModel.isLocalAiEnabled && !viewModel.isMultiplayer) "FRIEND"
                                   else if (engine.playerCount == 2) "OPPONENT"
                                   else "PLAYER ${engine.currentPlayerIndex}"
                     )
@@ -191,21 +192,22 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(engine.playerCount) { index ->
-                    val teamIndex = index % 2
-                    val currentRoundScore = scores["Team$teamIndex"] ?: 0
-                    val totalScore = viewModel.cumulativeScores[teamIndex] + currentRoundScore
+                    val scoreKey = if (engine.playerCount == 4) "Team${index % 2}" else "Team$index"
+                    val currentRoundScore = scores[scoreKey] ?: 0
+                    val totalScore = viewModel.cumulativeScores[index] + currentRoundScore
                     
                     PlayerHandPanel(
                         modifier = Modifier.width(160.dp),
                         name = if (index == 0) "You" 
-                               else if (index == 1 && viewModel.isLocalAiEnabled && !viewModel.isMultiplayer) "AI"
+                               else if (viewModel.isLocalAiEnabled && !viewModel.isMultiplayer) (if (engine.playerCount == 2) "AI" else "AI $index")
+                               else if (!viewModel.isLocalAiEnabled && !viewModel.isMultiplayer && engine.playerCount == 2) "Friend"
                                else "Player $index",
                         cardsRemaining = engine.hands[index].size,
                         score = totalScore,
                         isTop = index != 0,
                         topStackCard = engine.privateStacks[index].lastOrNull(),
-                        isSelected = index == 1 && viewModel.selectedOpponentStackCard != null,
-                        onClick = { if (index == 1) viewModel.onOpponentStackClicked() }
+                        isSelected = index != 0 && viewModel.selectedOpponentStackCard != null && viewModel.selectedOpponentStackCard == engine.privateStacks[index].lastOrNull(),
+                        onClick = { if (index != 0) viewModel.onOpponentStackClicked(index) }
                     )
                 }
             }

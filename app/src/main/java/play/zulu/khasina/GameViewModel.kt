@@ -57,7 +57,7 @@ class GameViewModel : ViewModel() {
 
     var currentRound by mutableStateOf(1)
     val maxRounds = 2
-    val cumulativeScores = mutableStateListOf(0, 0) // Team 0, Team 1
+    val cumulativeScores = mutableStateListOf(0, 0, 0, 0) // Teams/Players 0-3
 
     var selectedUserForProfile by mutableStateOf<UserRead?>(null)
     val matchLobbyPlayers = mutableStateListOf<UserRead>()
@@ -286,10 +286,9 @@ class GameViewModel : ViewModel() {
         if (engine.currentPlayerIndex != 0 || engine.gameOver) return
         if (selectedConstructions.contains(construction)) selectedConstructions.remove(construction) else selectedConstructions.add(construction)
     }
-    fun onOpponentStackClicked() {
+    fun onOpponentStackClicked(index: Int) {
         if (engine.currentPlayerIndex != 0 || engine.gameOver) return
-        val oppIdx = if (engine.playerCount == 4) 1 else 1
-        val top = engine.privateStacks[oppIdx].lastOrNull() ?: return
+        val top = engine.privateStacks[index].lastOrNull() ?: return
         selectedOpponentStackCard = if (selectedOpponentStackCard == top) null else top
     }
 
@@ -363,14 +362,17 @@ class GameViewModel : ViewModel() {
 
     private fun triggerAiTurn() {
         viewModelScope.launch {
-            lastMessage = "AI Thinking..."
+            val index = engine.currentPlayerIndex
+            lastMessage = "AI $index Thinking..."
             delay(2000)
-            val hand = engine.hands[engine.currentPlayerIndex]
+            val hand = engine.hands[index]
             if (hand.isNotEmpty()) {
-                engine.playCard(hand.random(), engine.currentPlayerIndex)
+                engine.playCard(hand.random(), index)
             }
             if (engine.gameOver) {
                 checkRoundEnd()
+            } else if (engine.currentPlayerIndex != 0) {
+                finalizeTurn() // Recursive call for next AI
             } else {
                 lastMessage = "YOUR TURN"
             }
@@ -381,16 +383,19 @@ class GameViewModel : ViewModel() {
         if (!engine.gameOver) return
         
         val roundScores = engine.calculateScores()
-        cumulativeScores[0] += roundScores["Team0"] ?: 0
-        cumulativeScores[1] += roundScores["Team1"] ?: 0
+        for (i in 0 until engine.playerCount) {
+            val key = if (engine.playerCount == 4) "Team${i % 2}" else "Team$i"
+            cumulativeScores[i] += roundScores[key] ?: 0
+        }
 
         if (currentRound < maxRounds) {
             viewModelScope.launch {
                 lastMessage = "ROUND $currentRound OVER"
                 delay(3000)
                 currentRound++
-                val aiWasEnabled = engine.useAI
-                engine = GameEngine(engine.playerCount)
+                val aiWasEnabled = isLocalAiEnabled
+                val pCount = engine.playerCount
+                engine = GameEngine(pCount)
                 engine.useAI = aiWasEnabled
                 lastMessage = "ROUND $currentRound START"
             }
@@ -738,8 +743,8 @@ class GameViewModel : ViewModel() {
     private fun resetLocalGame() {
         val currentUseAi = isLocalAiEnabled
         currentRound = 1
-        cumulativeScores[0] = 0
-        cumulativeScores[1] = 0
+        for (i in cumulativeScores.indices) cumulativeScores[i] = 0
+        // Default to 2 players for local AI play
         engine = GameEngine(2)
         engine.useAI = currentUseAi; clearSelections(); isMultiStagePlayActive = false; turnTimerJob?.cancel()
     }

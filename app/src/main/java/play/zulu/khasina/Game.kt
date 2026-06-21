@@ -91,6 +91,16 @@ class GameEngine(val playerCount: Int = 2) {
                     if (deck.isNotEmpty()) hands[i].add(deck.removeAt(0))
                 }
             }
+        } else if (playerCount == 3) {
+            // 3 player specialized: 3 each, 1 to floor
+            repeat(3) {
+                for (i in 0 until 3) {
+                    if (deck.isNotEmpty()) hands[i].add(deck.removeAt(0))
+                }
+            }
+            if (floor.isEmpty() && deck.isNotEmpty()) {
+                floor.add(deck.removeAt(0))
+            }
         } else {
             // 2 player: 10 each
             repeat(10) {
@@ -99,9 +109,15 @@ class GameEngine(val playerCount: Int = 2) {
                 }
             }
         }
-        // Deal 4 to the floor initially if empty
-        if (floor.isEmpty() && deck.isNotEmpty()) {
+        // Deal 4 to the floor initially if empty (for 2/4 players)
+        if (playerCount != 3 && floor.isEmpty() && deck.isNotEmpty()) {
             repeat(4) { if (deck.isNotEmpty()) floor.add(deck.removeAt(0)) }
+        }
+    }
+
+    fun drawCard(playerIndex: Int) {
+        if (deck.isNotEmpty() && hands[playerIndex].size < 3) {
+            hands[playerIndex].add(deck.removeAt(0))
         }
     }
 
@@ -118,6 +134,7 @@ class GameEngine(val playerCount: Int = 2) {
 
     fun executePlay(playedCard: Card, playerIndex: Int) {
         hands[playerIndex].remove(playedCard)
+        if (playerCount == 3) drawCard(playerIndex)
         checkDisassemble(playerIndex, playedCard)
         floor.add(playedCard)
         nextTurn()
@@ -175,6 +192,7 @@ class GameEngine(val playerCount: Int = 2) {
             targetConstruction.cards.add(playedCard)
             floor.removeAll(selectedFloorCards)
             hand.remove(playedCard)
+            if (playerCount == 3) drawCard(playerIndex)
             return true
         }
 
@@ -212,6 +230,7 @@ class GameEngine(val playerCount: Int = 2) {
             floor.removeAll(selectedFloorCards)
             constructions.removeAll(selectedConstructions)
             hands[playerIndex].remove(playedCard)
+            if (playerCount == 3) drawCard(playerIndex)
             return true
         }
 
@@ -237,6 +256,7 @@ class GameEngine(val playerCount: Int = 2) {
             floor.removeAll(captured)
         } else floor.add(card)
         hand.remove(card)
+        if (playerCount == 3) drawCard(playerIndex)
         nextTurn()
         return true
     }
@@ -269,6 +289,15 @@ class GameEngine(val playerCount: Int = 2) {
 
     fun calculateScores(): Map<String, Int> {
         val scores = mutableMapOf<String, Int>()
+        
+        if (playerCount == 3) {
+            // Simplified scoring for 3 players: Only point cards
+            for (i in 0 until 3) {
+                scores["Team$i"] = privateStacks[i].sumOf { it.points }
+            }
+            return scores
+        }
+
         val team0Stack = if (playerCount == 4) privateStacks[0] + privateStacks[2] else privateStacks[0]
         val team1Stack = if (playerCount == 4) privateStacks[1] + privateStacks[3] else privateStacks[1]
         
