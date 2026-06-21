@@ -51,6 +51,8 @@ class GameViewModel : ViewModel() {
     var isUserDetailVisible by mutableStateOf(false)
     var floatingMessage by mutableStateOf<String?>(null)
     
+    private var refreshFriendsJob: Job? = null
+    
     // Invitation & AI Logic
     var incomingInvitation by mutableStateOf<GameSessionRead?>(null)
     var isLocalAiEnabled by mutableStateOf(true)
@@ -235,7 +237,10 @@ class GameViewModel : ViewModel() {
     fun attemptServerConnection() {
         viewModelScope.launch {
             connectionState = ConnectionState.CONNECTING
-            if (discoverServers()) gameService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
+            if (discoverServers()) {
+                gameService.connect(gameServerAddress!!.first, gameServerAddress!!.second)
+                chatService.connect(chatServerAddress!!.first, chatServerAddress!!.second)
+            }
             else { connectionState = ConnectionState.OFFLINE; isConnectedToServer = false }
         }
     }
@@ -243,7 +248,7 @@ class GameViewModel : ViewModel() {
     fun toggleServerConnection(address: String, connect: Boolean) {
         isConnectionEnabled = connect; userStorage?.setConnectionEnabled(connect)
         if (connect) attemptServerConnection()
-        else { gameService.stop(); isConnectedToServer = false; connectionState = ConnectionState.OFFLINE; if (connectionType == ConnectionType.ONLINE) disconnect() }
+        else { gameService.stop(); chatService.stop(); isConnectedToServer = false; connectionState = ConnectionState.OFFLINE; if (connectionType == ConnectionType.ONLINE) disconnect() }
     }
 
     fun logout() {
@@ -253,7 +258,7 @@ class GameViewModel : ViewModel() {
     }
 
     fun disconnect() {
-        gameService.stop(); isMultiplayer = false; isHost = false; connectionType = null
+        gameService.stop(); chatService.stop(); isMultiplayer = false; isHost = false; connectionType = null
         activeSessionId = null
         resetLocalGame()
         engine.useAI = isLocalAiEnabled
@@ -460,18 +465,22 @@ class GameViewModel : ViewModel() {
     }
 
     fun refreshFriends() {
-        viewModelScope.launch {
+        refreshFriendsJob?.cancel()
+        refreshFriendsJob = viewModelScope.launch {
             val api = authApi ?: return@launch
             try {
                 val response = api.getFriends("Bearer $accessToken")
                 if (response.isSuccessful) {
-                    friendsList.clear()
-                    response.body()?.forEach { friend ->
+                    val friends = response.body() ?: emptyList()
+                    val processedList = mutableListOf<FriendRead>()
+                    friends.forEach { friend ->
                         val otherId = if (friend.user_id == currentUserData?.id) friend.friend_id else friend.user_id
                         val userResp = api.getUser(otherId)
                         if (userResp.isSuccessful) friend.friendUsername = userResp.body()?.username
-                        friendsList.add(friend)
+                        processedList.add(friend)
                     }
+                    friendsList.clear()
+                    friendsList.addAll(processedList.distinctBy { it.id })
                 }
             } catch (e: Exception) {}
         }
@@ -480,7 +489,17 @@ class GameViewModel : ViewModel() {
     fun acceptFriendRequest(requesterId: UUID) {
         viewModelScope.launch {
             val api = authApi ?: return@launch
-            try { if (api.updateFriendStatus("Bearer $accessToken", requesterId, "ACCEPTED").isSuccessful) { refreshFriends(); showFloatingMessage("Accepted!") } } catch (e: Exception) {}
+            try { 
+                val response = api.updateFriendStatus("Bearer $accessToken", requesterId, "ACCEPTED")
+                if (response.isSuccessful) { 
+                    refreshFriends()
+                    showFloatingMessage("Accepted!") 
+                } else {
+                    showFloatingMessage("Failed to accept: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                showFloatingMessage("Error: ${e.localizedMessage}")
+            }
         }
     }
 

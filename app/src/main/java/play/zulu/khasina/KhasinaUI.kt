@@ -122,30 +122,69 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                                   else "PLAYER ${engine.currentPlayerIndex}"
                     )
 
-                    // DECK
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B12)),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(text = "DECK", color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            if (engine.deck.isNotEmpty()) {
-                                Box(modifier = Modifier.size(width = 40.dp, height = 56.dp)) {
-                                    Image(painterResource(R.drawable.crd), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                                    Text(engine.deck.size.toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.align(Alignment.Center))
-                                }
-                            } else { ConstructionPlaceholder() }
-                        }
-                    }
-
                     SideInfoCard(title = "MODE", content = if (viewModel.isMultiplayer) "ONLINE" else "LOCAL")
                     SideInfoCard(title = "PRIVATE STACK", content = "${engine.privateStacks[0].size} Cards")
+
+                    // Additional info in Side Panel based on player count
+                    if (engine.playerCount == 3) {
+                        // In 3P mode, show one opponent and the deck in the side panel
+                        val index = 2
+                        val scoreKey = "Team$index"
+                        val currentRoundScore = scores[scoreKey] ?: 0
+                        val totalScore = viewModel.cumulativeScores[index] + currentRoundScore
+
+                        PlayerHandPanel(
+                            modifier = Modifier.fillMaxWidth(),
+                            name = if (viewModel.isLocalAiEnabled && !viewModel.isMultiplayer) "AI 2" else "Player 2",
+                            cardsRemaining = engine.hands[index].size,
+                            score = totalScore,
+                            isTop = true,
+                            topStackCard = engine.privateStacks[index].lastOrNull(),
+                            isSelected = viewModel.selectedOpponentStackCard != null && viewModel.selectedOpponentStackCard == engine.privateStacks[index].lastOrNull(),
+                            onClick = { viewModel.onOpponentStackClicked(index) }
+                        )
+
+                        // DECK Section
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B12)),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(text = "DECK", color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                if (engine.deck.isNotEmpty()) {
+                                    Box(modifier = Modifier.size(width = 40.dp, height = 56.dp)) {
+                                        Image(painterResource(R.drawable.crd), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                                        Text(engine.deck.size.toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.align(Alignment.Center))
+                                    }
+                                } else { ConstructionPlaceholder() }
+                            }
+                        }
+                    } else if (engine.playerCount == 4) {
+                        // In 4P mode, show the two "other" players (Index 2 and 3) in the side panel
+                        repeat(2) { i ->
+                            val index = i + 2
+                            val scoreKey = "Team${index % 2}"
+                            val currentRoundScore = scores[scoreKey] ?: 0
+                            val totalScore = viewModel.cumulativeScores[index] + currentRoundScore
+
+                            PlayerHandPanel(
+                                modifier = Modifier.fillMaxWidth(),
+                                name = "Player $index",
+                                cardsRemaining = engine.hands[index].size,
+                                score = totalScore,
+                                isTop = true,
+                                topStackCard = engine.privateStacks[index].lastOrNull(),
+                                isSelected = viewModel.selectedOpponentStackCard != null && viewModel.selectedOpponentStackCard == engine.privateStacks[index].lastOrNull(),
+                                onClick = { viewModel.onOpponentStackClicked(index) }
+                            )
+                        }
+                    }
                 }
             }
 
@@ -187,21 +226,22 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
 
             // ===== PLAYER INFO PANELS =====
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
+            Row(
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(engine.playerCount) { index ->
+                // Always show first two players at the bottom
+                repeat(2) { index ->
                     val scoreKey = if (engine.playerCount == 4) "Team${index % 2}" else "Team$index"
                     val currentRoundScore = scores[scoreKey] ?: 0
                     val totalScore = viewModel.cumulativeScores[index] + currentRoundScore
-                    
+
                     PlayerHandPanel(
-                        modifier = Modifier.width(160.dp),
-                        name = if (index == 0) "You" 
-                               else if (viewModel.isLocalAiEnabled && !viewModel.isMultiplayer) (if (engine.playerCount == 2) "AI" else "AI $index")
-                               else if (!viewModel.isLocalAiEnabled && !viewModel.isMultiplayer && engine.playerCount == 2) "Friend"
-                               else "Player $index",
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        name = if (index == 0) "You"
+                        else if (viewModel.isLocalAiEnabled && !viewModel.isMultiplayer) (if (engine.playerCount == 2) "AI" else "AI $index")
+                        else if (!viewModel.isLocalAiEnabled && !viewModel.isMultiplayer && engine.playerCount == 2) "Friend"
+                        else "Player $index",
                         cardsRemaining = engine.hands[index].size,
                         score = totalScore,
                         isTop = index != 0,
