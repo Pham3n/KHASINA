@@ -191,8 +191,13 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
 
             // ===== PLAYER HAND =====
+            val displayHandIndex = if (!viewModel.isMultiplayer && !viewModel.isLocalAiEnabled) {
+                engine.currentPlayerIndex
+            } else {
+                0
+            }
             PlayerCardsSection(
-                cards = engine.hands[0],
+                cards = engine.hands[displayHandIndex],
                 selectedCard = viewModel.selectedCardHand,
                 onCardSelect = { viewModel.onCardHandClicked(it) }
             )
@@ -200,20 +205,23 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
 
             // ===== ACTION BUTTONS =====
+            val canControl = if (viewModel.isMultiplayer) engine.currentPlayerIndex == 0 
+                             else true // In local play, whoever's turn it is uses the same device
+            
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 GameActionButton(
                     text = "PLAY",
-                    enabled = (viewModel.selectedCardHand != null) && engine.currentPlayerIndex == 0 && !engine.gameOver
+                    enabled = (viewModel.selectedCardHand != null) && canControl && !engine.gameOver
                 ) { viewModel.onPlayClicked() }
 
                 GameActionButton(
                     text = "CAPTURE",
-                    enabled = (viewModel.selectedCardHand != null) && engine.currentPlayerIndex == 0 && !engine.gameOver
+                    enabled = (viewModel.selectedCardHand != null) && canControl && !engine.gameOver
                 ) { viewModel.onCaptureClicked() }
 
                 GameActionButton(
                     text = "BUILD",
-                    enabled = (viewModel.selectedCardHand != null) && engine.currentPlayerIndex == 0 && !engine.gameOver
+                    enabled = (viewModel.selectedCardHand != null) && canControl && !engine.gameOver
                 ) { viewModel.onBuildClicked() }
 
                 GameActionButton("RESET") { viewModel.resetGame() }

@@ -56,6 +56,7 @@ class GameViewModel : ViewModel() {
     // Invitation & AI Logic
     var incomingInvitation by mutableStateOf<GameSessionRead?>(null)
     var isLocalAiEnabled by mutableStateOf(true)
+    var localPlayerCount by mutableStateOf(2)
 
     var currentRound by mutableStateOf(1)
     val maxRounds = 2
@@ -280,19 +281,23 @@ class GameViewModel : ViewModel() {
     }
 
     fun onCardHandClicked(card: Card) {
-        if (engine.currentPlayerIndex != 0 || engine.gameOver || isMultiStagePlayActive) return
+        val canInteract = if (isMultiplayer) engine.currentPlayerIndex == 0 else true
+        if (!canInteract || engine.gameOver || isMultiStagePlayActive) return
         selectedCardHand = if (selectedCardHand == card) null else card
     }
     fun onCardFloorClicked(card: Card) {
-        if (engine.currentPlayerIndex != 0 || engine.gameOver) return
+        val canInteract = if (isMultiplayer) engine.currentPlayerIndex == 0 else true
+        if (!canInteract || engine.gameOver) return
         if (selectedCardsFloor.contains(card)) selectedCardsFloor.remove(card) else selectedCardsFloor.add(card)
     }
     fun onConstructionClicked(construction: Construction) {
-        if (engine.currentPlayerIndex != 0 || engine.gameOver) return
+        val canInteract = if (isMultiplayer) engine.currentPlayerIndex == 0 else true
+        if (!canInteract || engine.gameOver) return
         if (selectedConstructions.contains(construction)) selectedConstructions.remove(construction) else selectedConstructions.add(construction)
     }
     fun onOpponentStackClicked(index: Int) {
-        if (engine.currentPlayerIndex != 0 || engine.gameOver) return
+        val canInteract = if (isMultiplayer) engine.currentPlayerIndex == 0 else true
+        if (!canInteract || engine.gameOver) return
         val top = engine.privateStacks[index].lastOrNull() ?: return
         selectedOpponentStackCard = if (selectedOpponentStackCard == top) null else top
     }
@@ -300,7 +305,8 @@ class GameViewModel : ViewModel() {
     fun onPlayClicked() {
         if (engine.gameOver) return
         val card = selectedCardHand ?: return 
-        engine.executePlay(card, 0)
+        val pIdx = if (isMultiplayer) 0 else engine.currentPlayerIndex
+        engine.executePlay(card, pIdx)
         clearSelections()
         if (isMultiplayer && activeSessionId != null) { 
             sendGameAction("PLAY", mapOf("card" to card))
@@ -313,7 +319,8 @@ class GameViewModel : ViewModel() {
     fun onBuildClicked() {
         if (engine.gameOver) return
         val card = selectedCardHand ?: return 
-        val success = engine.executeBuild(card, selectedCardsFloor.toList(), selectedConstructions.toList(), selectedOpponentStackCard, 0)
+        val pIdx = if (isMultiplayer) 0 else engine.currentPlayerIndex
+        val success = engine.executeBuild(card, selectedCardsFloor.toList(), selectedConstructions.toList(), selectedOpponentStackCard, pIdx)
         clearSelections()
         if (success) {
             isMultiStagePlayActive = true
@@ -332,7 +339,8 @@ class GameViewModel : ViewModel() {
     fun onCaptureClicked() {
         if (engine.gameOver) return
         val card = selectedCardHand ?: return 
-        val success = engine.executeCapture(card, selectedCardsFloor.toList(), selectedConstructions.toList(), selectedOpponentStackCard, 0)
+        val pIdx = if (isMultiplayer) 0 else engine.currentPlayerIndex
+        val success = engine.executeCapture(card, selectedCardsFloor.toList(), selectedConstructions.toList(), selectedOpponentStackCard, pIdx)
         if (success) {
             clearSelections()
             isMultiStagePlayActive = true
@@ -344,7 +352,7 @@ class GameViewModel : ViewModel() {
                 captureRetriesRemaining--
                 showFloatingMessage("Invalid Capture! One chance to correct.")
             } else {
-                engine.executePlay(card, 0)
+                engine.executePlay(card, pIdx)
                 clearSelections()
                 captureRetriesRemaining = 1
                 if (isMultiplayer && activeSessionId != null) {
@@ -763,8 +771,7 @@ class GameViewModel : ViewModel() {
         val currentUseAi = isLocalAiEnabled
         currentRound = 1
         for (i in cumulativeScores.indices) cumulativeScores[i] = 0
-        // Default to 2 players for local AI play
-        engine = GameEngine(2)
+        engine = GameEngine(localPlayerCount)
         engine.useAI = currentUseAi; clearSelections(); isMultiStagePlayActive = false; turnTimerJob?.cancel()
     }
 

@@ -180,7 +180,20 @@ fun SidebarContent(viewModel: GameViewModel, checkAndRun: (Array<String>, () -> 
                     viewModel.disconnect()
                     viewModel.isLocalAiEnabled = false
                     viewModel.engine.useAI = false
-                    onActionStarted()
+                    // We'll keep localExpanded true to show player count options
+                }
+                AnimatedVisibility(visible = !viewModel.isLocalAiEnabled && !viewModel.isMultiplayer) {
+                    Row(modifier = Modifier.padding(start = 16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        PlayerCountChip(2, viewModel.localPlayerCount == 2) { 
+                            viewModel.localPlayerCount = 2; viewModel.resetGame(); onActionStarted() 
+                        }
+                        PlayerCountChip(3, viewModel.localPlayerCount == 3) { 
+                            viewModel.localPlayerCount = 3; viewModel.resetGame(); onActionStarted() 
+                        }
+                        PlayerCountChip(4, viewModel.localPlayerCount == 4) { 
+                            viewModel.localPlayerCount = 4; viewModel.resetGame(); onActionStarted() 
+                        }
+                    }
                 }
             }
         }
@@ -262,6 +275,24 @@ fun SidebarContent(viewModel: GameViewModel, checkAndRun: (Array<String>, () -> 
             Text("CONNECT TO SERVER", color = if (viewModel.authState == GameViewModel.AuthState.GUEST) Color.Gray else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Switch(enabled = viewModel.authState != GameViewModel.AuthState.GUEST, checked = viewModel.isConnectionEnabled, onCheckedChange = { viewModel.toggleServerConnection("", it) }, colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD6B37A), checkedTrackColor = Color(0xFF5A3822), disabledCheckedThumbColor = Color.Gray, disabledUncheckedThumbColor = Color.DarkGray))
         }
+    }
+}
+
+@Composable
+fun PlayerCountChip(count: Int, isSelected: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        color = if (isSelected) Color(0xFFD6B37A) else Color(0xFF3B2417),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.padding(4.dp)
+    ) {
+        Text(
+            "${count}P", 
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            color = if (isSelected) Color(0xFF1B120B) else Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
