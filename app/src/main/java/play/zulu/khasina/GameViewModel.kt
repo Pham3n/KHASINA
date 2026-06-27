@@ -475,6 +475,31 @@ class GameViewModel : ViewModel() {
         }
     }
 
+    fun addFriend(user: UserRead, onComplete: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            val api = authApi ?: run { onComplete?.invoke(false); return@launch }
+            try {
+                val response = api.addFriend("Bearer $accessToken", FriendCreate(user.id))
+                if (response.isSuccessful) {
+                    refreshFriends()
+                    showFloatingMessage("Friend request sent to ${user.displayName ?: user.username}!")
+                    onComplete?.invoke(true)
+                } else {
+                    val errorMsg = when(response.code()) {
+                        409 -> "Already friends or request pending"
+                        404 -> "User not found on server"
+                        else -> "Failed to add: ${response.code()}"
+                    }
+                    showFloatingMessage(errorMsg)
+                    onComplete?.invoke(false)
+                }
+            } catch (e: Exception) {
+                showFloatingMessage("Connection error: ${e.localizedMessage}")
+                onComplete?.invoke(false)
+            }
+        }
+    }
+
     fun addFriendByUsername(username: String, onComplete: (Boolean) -> Unit) {
         viewModelScope.launch {
             val api = authApi ?: run { onComplete(false); return@launch }
@@ -484,10 +509,14 @@ class GameViewModel : ViewModel() {
                     val users = searchResp.body() ?: emptyList()
                     val exactUser = users.find { it.username.equals(username, ignoreCase = true) }
                     if (exactUser != null) {
-                        if (api.addFriend("Bearer $accessToken", FriendCreate(exactUser.id)).isSuccessful) { refreshFriends(); onComplete(true); return@launch }
+                        addFriend(exactUser, onComplete)
+                        return@launch
                     }
                 }
-            } catch (e: Exception) {}
+                showFloatingMessage("User '$username' not found")
+            } catch (e: Exception) {
+                showFloatingMessage("Search failed: ${e.localizedMessage}")
+            }
             onComplete(false)
         }
     }
@@ -805,7 +834,18 @@ class GameViewModel : ViewModel() {
     fun addFriend(friendId: UUID) {
         viewModelScope.launch {
             val api = authApi ?: return@launch
-            try { if (api.addFriend("Bearer $accessToken", FriendCreate(friendId)).isSuccessful) { refreshFriends(); showFloatingMessage("Friend request sent!") } } catch (e: Exception) {}
+            try { 
+                val response = api.addFriend("Bearer $accessToken", FriendCreate(friendId))
+                if (response.isSuccessful) { 
+                    refreshFriends()
+                    showFloatingMessage("Friend request sent!") 
+                } else {
+                    val msg = if (response.code() == 409) "Already friends" else "Error: ${response.code()}"
+                    showFloatingMessage(msg)
+                }
+            } catch (e: Exception) {
+                showFloatingMessage("Error: ${e.localizedMessage}")
+            }
         }
     }
 

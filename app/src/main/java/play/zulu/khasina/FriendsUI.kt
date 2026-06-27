@@ -177,13 +177,26 @@ fun AddFriendDialog(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { username = user.username }
+                                    .clickable { 
+                                        isChecking = true
+                                        viewModel.addFriend(user) {
+                                            isChecking = false
+                                            onDismiss()
+                                        }
+                                    }
                                     .padding(vertical = 8.dp, horizontal = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Default.Person, null, tint = Color(0xFFD6B37A), modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(user.username, color = Color.White, fontSize = 16.sp)
+                                Column {
+                                    Text(user.username, color = Color.White, fontSize = 16.sp)
+                                    if (user.displayName != null) {
+                                        Text(user.displayName, color = Color.Gray, fontSize = 12.sp)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.weight(1f))
+                                Text("ADD", color = Color(0xFFE7C58A), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             }
                         }
                     }
@@ -203,11 +216,8 @@ fun AddFriendDialog(
                 enabled = username.isNotBlank() && !isChecking,
                 onClick = {
                     isChecking = true
-                    viewModel.addFriendByUsername(username) { success ->
+                    viewModel.addFriendByUsername(username) { 
                         isChecking = false
-                        if (!success) {
-                            viewModel.showFloatingMessage("User '$username' not found")
-                        }
                         onDismiss()
                     }
                 },
