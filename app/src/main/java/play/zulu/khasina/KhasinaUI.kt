@@ -172,10 +172,13 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
                             val scoreKey = "Team${index % 2}"
                             val currentRoundScore = scores[scoreKey] ?: 0
                             val totalScore = viewModel.cumulativeScores[index] + currentRoundScore
+                            
+                            val currentPlayer = engine.currentPlayerIndex
+                            val isPartner = index == (currentPlayer + 2) % 4
 
                             PlayerHandPanel(
                                 modifier = Modifier.fillMaxWidth(),
-                                name = "Player $index",
+                                name = if (isPartner) "Partner" else "Opponent",
                                 cardsRemaining = engine.hands[index].size,
                                 score = totalScore,
                                 isTop = true,
@@ -196,9 +199,12 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
             } else {
                 0
             }
+            val isRevealed = viewModel.isHandRevealed || viewModel.isMultiplayer || viewModel.isLocalAiEnabled
+            
             PlayerCardsSection(
                 cards = engine.hands[displayHandIndex],
                 selectedCard = viewModel.selectedCardHand,
+                isRevealed = isRevealed,
                 onCardSelect = { viewModel.onCardHandClicked(it) }
             )
 
@@ -206,22 +212,27 @@ fun KHASINAScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
 
             // ===== ACTION BUTTONS =====
             val canControl = if (viewModel.isMultiplayer) engine.currentPlayerIndex == 0 
-                             else true // In local play, whoever's turn it is uses the same device
+                             else true 
             
+            val currentPlayer = engine.currentPlayerIndex
+            val partner = if (engine.playerCount == 4) (currentPlayer + 2) % 4 else -1
+            val hasActiveConstruction = engine.constructions.any { it.ownerIndex == currentPlayer || it.ownerIndex == partner }
+            val isOpponentCardSelected = viewModel.selectedOpponentStackCard != null
+
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 GameActionButton(
                     text = "PLAY",
-                    enabled = (viewModel.selectedCardHand != null) && canControl && !engine.gameOver
+                    enabled = (viewModel.selectedCardHand != null) && canControl && !engine.gameOver && !isOpponentCardSelected
                 ) { viewModel.onPlayClicked() }
 
                 GameActionButton(
                     text = "CAPTURE",
-                    enabled = (viewModel.selectedCardHand != null) && canControl && !engine.gameOver
+                    enabled = (viewModel.selectedCardHand != null) && canControl && !engine.gameOver && !isOpponentCardSelected
                 ) { viewModel.onCaptureClicked() }
 
                 GameActionButton(
                     text = "BUILD",
-                    enabled = (viewModel.selectedCardHand != null) && canControl && !engine.gameOver
+                    enabled = (viewModel.selectedCardHand != null) && canControl && !engine.gameOver && (!isOpponentCardSelected || hasActiveConstruction)
                 ) { viewModel.onBuildClicked() }
 
                 GameActionButton("RESET") { viewModel.resetGame() }
@@ -414,15 +425,26 @@ fun ConstructionPlaceholder() {
 }
 
 @Composable
-fun PlayerCardsSection(cards: List<Card>, selectedCard: Card?, onCardSelect: (Card) -> Unit) {
+fun PlayerCardsSection(cards: List<Card>, selectedCard: Card?, isRevealed: Boolean, onCardSelect: (Card) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(text = "YOUR HAND", color = Color(0xFFEBC98F), fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text(
+            text = if (isRevealed) "YOUR HAND" else "TAP TO REVEAL HAND", 
+            color = Color(0xFFEBC98F), 
+            fontWeight = FontWeight.Bold, 
+            fontSize = 20.sp
+        )
         Spacer(modifier = Modifier.height(8.dp))
         LazyRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(end = 16.dp)) {
             if (cards.isEmpty()) { items(3) { ConstructionPlaceholder() } }
             else {
                 items(cards) { card ->
-                    PlayingCard(card = card, isSelected = card == selectedCard, onClick = { onCardSelect(card) })
+                    if (isRevealed) {
+                        PlayingCard(card = card, isSelected = card == selectedCard, onClick = { onCardSelect(card) })
+                    } else {
+                        Box(modifier = Modifier.clickable { onCardSelect(card) }) {
+                            ConstructionPlaceholder()
+                        }
+                    }
                 }
             }
         }

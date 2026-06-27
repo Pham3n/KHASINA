@@ -51,6 +51,8 @@ class GameViewModel : ViewModel() {
     var isUserDetailVisible by mutableStateOf(false)
     var floatingMessage by mutableStateOf<String?>(null)
     
+    var isHandRevealed by mutableStateOf(true)
+    
     private var refreshFriendsJob: Job? = null
     
     // Invitation & AI Logic
@@ -281,6 +283,10 @@ class GameViewModel : ViewModel() {
     }
 
     fun onCardHandClicked(card: Card) {
+        if (!isHandRevealed) {
+            isHandRevealed = true
+            return
+        }
         val canInteract = if (isMultiplayer) engine.currentPlayerIndex == 0 else true
         if (!canInteract || engine.gameOver || isMultiStagePlayActive) return
         selectedCardHand = if (selectedCardHand == card) null else card
@@ -298,6 +304,17 @@ class GameViewModel : ViewModel() {
     fun onOpponentStackClicked(index: Int) {
         val canInteract = if (isMultiplayer) engine.currentPlayerIndex == 0 else true
         if (!canInteract || engine.gameOver) return
+        
+        // Ensure the clicked stack belongs to an opponent
+        val pIdx = engine.currentPlayerIndex
+        val isOpponent = if (engine.playerCount == 4) {
+            index != pIdx && index != (pIdx + 2) % 4
+        } else {
+            index != pIdx
+        }
+        
+        if (!isOpponent) return
+
         val top = engine.privateStacks[index].lastOrNull() ?: return
         selectedOpponentStackCard = if (selectedOpponentStackCard == top) null else top
     }
@@ -366,6 +383,9 @@ class GameViewModel : ViewModel() {
     }
 
     private fun finalizeTurn() {
+        if (!isMultiplayer && !isLocalAiEnabled) {
+            isHandRevealed = false
+        }
         if (engine.gameOver) {
             checkRoundEnd()
         } else if (isLocalAiEnabled && engine.currentPlayerIndex != 0) {
@@ -770,6 +790,7 @@ class GameViewModel : ViewModel() {
     private fun resetLocalGame() {
         val currentUseAi = isLocalAiEnabled
         currentRound = 1
+        isHandRevealed = true
         for (i in cumulativeScores.indices) cumulativeScores[i] = 0
         engine = GameEngine(localPlayerCount)
         engine.useAI = currentUseAi; clearSelections(); isMultiStagePlayActive = false; turnTimerJob?.cancel()
