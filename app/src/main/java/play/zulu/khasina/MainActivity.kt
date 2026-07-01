@@ -31,6 +31,10 @@ import play.zulu.khasina.ui.theme.KHASINATheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+
 class MainActivity : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels()
 
@@ -40,6 +44,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             KHASINATheme {
+                val navController = rememberNavController()
                 val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
                 var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -82,9 +87,30 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                         Box(modifier = Modifier.padding(innerPadding)) {
-                            KHASINAScreen(viewModel, onMenuClick = {
-                                scope.launch { drawerState.open() }
-                            })
+                            NavHost(navController = navController, startDestination = "dashboard") {
+                                composable("dashboard") {
+                                    DashboardScreen(
+                                        viewModel = viewModel,
+                                        onLaunchGame = { gameId ->
+                                            if (gameId == "khasina") {
+                                                navController.navigate("khasina")
+                                            } else if (gameId == "umlabalaba") {
+                                                navController.navigate("umlabalaba")
+                                            }
+                                        }
+                                    )
+                                }
+                                composable("khasina") {
+                                    KHASINAScreen(viewModel, onMenuClick = {
+                                        scope.launch { drawerState.open() }
+                                    })
+                                }
+                                composable("umlabalaba") {
+                                    UmlabalabaScreen(viewModel, onMenuClick = {
+                                        scope.launch { drawerState.open() }
+                                    })
+                                }
+                            }
 
                             // Global Floating Message
                             if (viewModel.floatingMessage != null) {

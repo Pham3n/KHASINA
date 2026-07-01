@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun UmlabalabaScreen() {
+fun UmlabalabaScreen(viewModel: GameViewModel, onMenuClick: () -> Unit) {
 
     val boardState = remember {
         mutableStateListOf(
@@ -51,7 +51,7 @@ fun UmlabalabaScreen() {
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            IconButton(onClick = { }) {
+            IconButton(onClick = onMenuClick) {
                 Icon(
                     Icons.Default.Menu,
                     contentDescription = null,
@@ -67,7 +67,10 @@ fun UmlabalabaScreen() {
             )
 
             Row {
-                IconButton(onClick = { }) {
+                IconButton(onClick = { 
+                    viewModel.isChatVisible = true 
+                    viewModel.refreshChatRooms()
+                }) {
                     Icon(
                         Icons.Default.Chat,
                         contentDescription = null,
@@ -75,7 +78,7 @@ fun UmlabalabaScreen() {
                     )
                 }
 
-                IconButton(onClick = { }) {
+                IconButton(onClick = { viewModel.isProfileVisible = true }) {
                     Icon(
                         Icons.Default.Person,
                         contentDescription = null,
